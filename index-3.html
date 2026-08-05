@@ -1,0 +1,3497 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EduFlow - Dashboard Guru Les Privat & Pengajar</title>
+  <meta name="description" content="Dashboard All-in-One berbasis web untuk pengajar dan guru les privat. Mengelola jadwal, kuis, papan tulis, timer, pengacak nama, dan catatan kehadiran.">
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eff6ff',
+              100: '#dbeafe',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8',
+              800: '#1e40af',
+              900: '#1e3a8a',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- Canvas Confetti CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+
+  <!-- PeerJS CDN (WebRTC signaling helper untuk fitur Video Call) -->
+  <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Custom Inline Styles untuk Single File Self-Contained -->
+  <style>
+    :root {
+      --font-heading: 'Outfit', sans-serif;
+      --font-body: 'Plus Jakarta Sans', sans-serif;
+    }
+    body {
+      font-family: var(--font-body);
+      background-color: #0f172a;
+      color: #f8fafc;
+      overflow-x: hidden;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      font-family: var(--font-heading);
+    }
+    .perspective-1000 {
+      perspective: 1000px;
+    }
+    .flashcard-container {
+      background-color: transparent;
+      perspective: 1000px;
+    }
+    .flashcard-inner {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      text-align: center;
+      transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+      transform-style: preserve-3d;
+    }
+    .flashcard-container.flipped .flashcard-inner {
+      transform: rotateY(180deg);
+    }
+    .flashcard-front, .flashcard-back {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      border-radius: 1rem;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+    }
+    .flashcard-back {
+      transform: rotateY(180deg);
+    }
+    .glass-card {
+      background: rgba(30, 41, 59, 0.85);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .glass-panel {
+      background: rgba(30, 41, 59, 0.7);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .glass-nav {
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-right: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #475569;
+    }
+    /* Canvas & Tools Styling */
+    #whiteboard-canvas {
+      touch-action: none;
+      cursor: crosshair;
+      background-color: #ffffff;
+      border-radius: 0.75rem;
+      box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06);
+    }
+    /* Active Nav Highlight */
+    .nav-item.active {
+      background: linear-gradient(135deg, rgba(99, 102, 241, 0.25) 0%, rgba(168, 85, 247, 0.25) 100%);
+      border-left: 4px solid #6366f1;
+      color: #ffffff;
+    }
+    /* Timer Progress Ring */
+    .timer-ring-circle {
+      transition: stroke-dashoffset 0.3s linear;
+      transform: rotate(-90deg);
+      transform-origin: 50% 50%;
+    }
+    /* Toast Animations */
+    @keyframes slideInUp {
+      from { transform: translateY(100%); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    @keyframes fadeOut {
+      from { opacity: 1; }
+      to { opacity: 0; }
+    }
+    .toast-enter { animation: slideInUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+    .toast-exit { animation: fadeOut 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+    /* Roulette Spinner */
+    @keyframes pulseScale {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+    .roulette-animating { animation: pulseScale 0.15s infinite alternate; }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col md:flex-row antialiased selection:bg-indigo-500 selection:text-white">
+
+  <!-- ========================================== -->
+  <!-- MODE SISWA: Halaman Join Kelas Full Screen  -->
+  <!-- Muncul otomatis kalau URL punya ?room=xxx   -->
+  <!-- Tidak menampilkan sidebar/dashboard guru     -->
+  <!-- ========================================== -->
+  <div id="student-join-view" class="hidden fixed inset-0 z-[100] bg-slate-950 flex flex-col items-center justify-center p-4 sm:p-6">
+    <div class="w-full max-w-md space-y-5">
+      <div class="text-center space-y-2">
+        <div class="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center text-white text-2xl shadow-lg shadow-indigo-500/25">
+          <i class="fa-solid fa-chalkboard-user"></i>
+        </div>
+        <h1 class="text-xl font-bold text-white">Undangan Kelas Online</h1>
+        <p id="student-join-subtitle" class="text-xs text-slate-400">Anda diundang untuk bergabung ke sesi bimbingan belajar</p>
+      </div>
+
+      <!-- Video Preview Area -->
+      <div class="relative bg-black rounded-2xl overflow-hidden border border-slate-800 aspect-video flex items-center justify-center">
+        <video id="sv-remote-video" autoplay playsinline class="w-full h-full object-cover"></video>
+        <div id="sv-remote-empty" class="absolute inset-0 flex flex-col items-center justify-center text-slate-600 gap-2">
+          <i class="fa-solid fa-user-slash text-3xl"></i>
+          <span class="text-xs">Menunggu guru terhubung...</span>
+        </div>
+        <video id="sv-local-video" autoplay playsinline muted class="absolute bottom-3 right-3 w-24 sm:w-32 aspect-video object-cover rounded-xl border-2 border-slate-700 shadow-lg bg-slate-900 hidden"></video>
+      </div>
+
+      <!-- Status -->
+      <div class="glass-panel p-3 rounded-2xl border border-slate-800 text-center">
+        <p id="sv-status-text" class="text-xs font-semibold text-slate-300"><i class="fa-solid fa-circle text-slate-600 text-[8px] mr-1.5"></i>Belum terhubung</p>
+      </div>
+
+      <!-- Action Button -->
+      <button id="sv-join-btn" class="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white rounded-xl text-sm font-bold shadow-lg shadow-emerald-500/20 transition">
+        <i class="fa-solid fa-video"></i> Aktifkan Kamera & Gabung Kelas
+      </button>
+
+      <!-- Control Bar (muncul setelah join) -->
+      <div id="sv-controls" class="hidden glass-panel p-3 rounded-2xl border border-slate-800 flex items-center justify-center gap-3">
+        <button id="sv-toggle-mic" class="w-11 h-11 rounded-full bg-slate-800 hover:bg-slate-700 text-white flex items-center justify-center transition" title="Mute/Unmute Mic">
+          <i class="fa-solid fa-microphone"></i>
+        </button>
+        <button id="sv-toggle-cam" class="w-11 h-11 rounded-full bg-slate-800 hover:bg-slate-700 text-white flex items-center justify-center transition" title="Nyalakan/Matikan Kamera">
+          <i class="fa-solid fa-video"></i>
+        </button>
+        <button id="sv-end-call" class="w-11 h-11 rounded-full bg-rose-600 hover:bg-rose-500 text-white flex items-center justify-center transition" title="Keluar Kelas">
+          <i class="fa-solid fa-phone-slash"></i>
+        </button>
+      </div>
+
+      <p class="text-center text-[11px] text-slate-600">Ditenagai EduFlow &middot; Tidak perlu instalasi aplikasi</p>
+    </div>
+  </div>
+
+  <!-- Mobile Top Header Bar -->
+  <header class="md:hidden glass-nav sticky top-0 z-40 px-4 py-3 flex items-center justify-between border-b border-slate-800">
+    <div class="flex items-center gap-3">
+      <button id="mobile-menu-btn" class="p-2 text-slate-300 hover:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" aria-label="Buka Menu Navigation">
+        <i class="fa-solid fa-bars text-xl"></i>
+      </button>
+      <div class="flex items-center gap-2">
+        <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center font-bold text-white shadow-md">
+          <i class="fa-solid fa-chalkboard-user text-sm"></i>
+        </div>
+        <span class="font-bold text-lg tracking-tight bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">EduFlow</span>
+      </div>
+    </div>
+    <div class="flex items-center gap-2">
+      <span id="current-time-mobile" class="text-xs font-mono text-slate-400 bg-slate-800/80 px-2 py-1 rounded">00:00</span>
+    </div>
+  </header>
+
+  <!-- Sidebar Overlay for Mobile -->
+  <div id="sidebar-overlay" class="fixed inset-0 bg-slate-950/70 z-40 hidden md:hidden transition-opacity"></div>
+
+  <!-- Sidebar Navigation -->
+  <aside id="sidebar" class="fixed md:static inset-y-0 left-0 z-50 w-72 glass-nav flex flex-col transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out shrink-0">
+    
+    <!-- Sidebar Header -->
+    <div class="p-5 border-b border-slate-800/80 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center font-bold text-white shadow-lg shadow-indigo-500/25">
+          <i class="fa-solid fa-chalkboard-user text-lg"></i>
+        </div>
+        <div>
+          <h1 id="app-display-title" class="font-bold text-lg leading-tight tracking-tight text-white">EduFlow</h1>
+          <p id="app-display-subtitle" class="text-xs text-indigo-300 font-medium">Dashboard Guru Privat</p>
+        </div>
+      </div>
+      <button id="close-sidebar-btn" class="md:hidden text-slate-400 hover:text-white p-1" aria-label="Tutup Menu">
+        <i class="fa-solid fa-xmark text-lg"></i>
+      </button>
+    </div>
+
+    <!-- Navigation Menu Items -->
+    <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+      <div class="px-3 pb-2 text-[11px] font-semibold tracking-wider text-slate-400 uppercase">Menu Utama</div>
+      
+      <button data-panel="schedule" class="nav-item w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-medium text-slate-300 hover:bg-slate-800/60 hover:text-white transition-all active">
+        <i class="fa-solid fa-calendar-days text-indigo-400 text-base w-5 text-center"></i>
+        <span>Jadwal Mengajar</span>
+        <span id="badge-schedule-count" class="ml-auto bg-indigo-500/20 text-indigo-300 text-xs font-semibold px-2 py-0.5 rounded-full">0</span>
+      </button>
+
+      <button data-panel="whiteboard" class="nav-item w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-medium text-slate-300 hover:bg-slate-800/60 hover:text-white transition-all">
+        <i class="fa-solid fa-pen-ruler text-purple-400 text-base w-5 text-center"></i>
+        <span>Papan Tulis Digital</span>
+      </button>
+
+      <button data-panel="quiz-flashcard" class="nav-item w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-medium text-slate-300 hover:bg-slate-800/60 hover:text-white transition-all">
+        <i class="fa-solid fa-layer-group text-emerald-400 text-base w-5 text-center"></i>
+        <span>Kuis & Flashcard</span>
+      </button>
+
+      <button data-panel="timer" class="nav-item w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-medium text-slate-300 hover:bg-slate-800/60 hover:text-white transition-all">
+        <i class="fa-solid fa-stopwatch text-amber-400 text-base w-5 text-center"></i>
+        <span>Pengatur Waktu</span>
+      </button>
+
+      <button data-panel="randomizer" class="nav-item w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-medium text-slate-300 hover:bg-slate-800/60 hover:text-white transition-all">
+        <i class="fa-solid fa-dice text-rose-400 text-base w-5 text-center"></i>
+        <span>Pengacak Nama</span>
+      </button>
+
+      <button data-panel="attendance" class="nav-item w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-medium text-slate-300 hover:bg-slate-800/60 hover:text-white transition-all">
+        <i class="fa-solid fa-clipboard-user text-cyan-400 text-base w-5 text-center"></i>
+        <span>Catatan & Kehadiran</span>
+      </button>
+
+      <button data-panel="videocall" class="nav-item w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-medium text-slate-300 hover:bg-slate-800/60 hover:text-white transition-all">
+        <i class="fa-solid fa-video text-red-400 text-base w-5 text-center"></i>
+        <span>Video Call</span>
+        <span id="videocall-status-dot" class="ml-auto w-2 h-2 rounded-full bg-slate-600"></span>
+      </button>
+    </nav>
+
+    <!-- Sidebar Footer / Data Management -->
+    <div class="p-4 border-t border-slate-800/80 bg-slate-950/40 space-y-2">
+      <!-- Tombol Pengaturan Tampilan -->
+      <button id="btn-open-settings" class="w-full flex items-center justify-center gap-2 px-3 py-2 mb-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold transition border border-slate-700">
+        <i class="fa-solid fa-gear"></i> Pengaturan Tampilan
+      </button>
+
+      <div class="flex items-center justify-between text-xs text-slate-400 mb-1">
+        <span>Penyimpanan Lokal</span>
+        <span class="text-emerald-400 font-medium"><i class="fa-solid fa-circle-check text-[10px] mr-1"></i>Aktif</span>
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <button id="btn-export-data" class="flex items-center justify-center gap-1.5 px-2.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium transition" title="Cadangkan Data JSON">
+          <i class="fa-solid fa-download text-indigo-400"></i> Ekspor
+        </button>
+        <button id="btn-import-trigger" class="flex items-center justify-center gap-1.5 px-2.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium transition" title="Pulihkan Data JSON">
+          <i class="fa-solid fa-upload text-purple-400"></i> Impor
+        </button>
+        <input type="file" id="input-import-file" accept=".json" class="hidden">
+      </div>
+      <button id="btn-reset-demo" class="w-full text-center text-xs text-slate-500 hover:text-rose-400 py-1 transition">
+        <i class="fa-solid fa-rotate-left mr-1"></i> Reset Ke Data Contoh
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main Content Wrapper -->
+  <main class="flex-1 flex flex-col min-w-0 overflow-y-auto">
+    
+    <!-- Top Header Bar for Desktop & Quick Info -->
+    <header class="glass-panel hidden md:flex items-center justify-between px-8 py-4 sticky top-0 z-30 border-b border-slate-800">
+      <div>
+        <h2 id="header-panel-title" class="text-xl font-bold text-white tracking-tight">Jadwal Mengajar</h2>
+        <p id="header-panel-subtitle" class="text-xs text-slate-400">Kelola dan pantau seluruh agenda bimbingan belajar Anda</p>
+      </div>
+      
+      <div class="flex items-center gap-4">
+        <!-- Date Time Display -->
+        <div class="flex items-center gap-2 bg-slate-800/80 px-3.5 py-1.5 rounded-xl border border-slate-700/60 text-xs">
+          <i class="fa-regular fa-clock text-indigo-400"></i>
+          <span id="current-date-desktop" class="font-medium text-slate-300">Selasa, 4 Agt 2026</span>
+          <span class="text-slate-600">|</span>
+          <span id="current-time-desktop" class="font-mono font-bold text-white">00:00:00</span>
+        </div>
+
+        <!-- Profile Badge -->
+        <div class="flex items-center gap-3 bg-slate-800/50 pl-3 pr-4 py-1.5 rounded-xl border border-slate-800">
+          <div class="w-7 h-7 rounded-lg bg-indigo-500/20 text-indigo-300 flex items-center justify-center text-xs font-bold">
+            <i class="fa-solid fa-user-graduate"></i>
+          </div>
+          <span id="user-display-name" class="text-xs font-semibold text-slate-200">Pengajar Les</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Content Panels Container -->
+    <div class="p-4 md:p-8 flex-1 space-y-6">
+
+      <!-- ========================================== -->
+      <!-- PANEL 1: JADWAL MENGAJAR (CLASS SCHEDULE)  -->
+      <!-- ========================================== -->
+      <section id="panel-schedule" class="panel-section space-y-6">
+        
+        <!-- Header Controls -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h3 class="text-lg font-bold text-white">Daftar Sesi Bimbingan</h3>
+            <p class="text-xs text-slate-400">Jadwal diurutkan otomatis dari waktu yang paling dekat</p>
+          </div>
+          <div class="flex items-center gap-3">
+            <input type="text" id="search-schedule" placeholder="Cari nama siswa / mapel..." class="px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-64">
+            <button id="btn-open-schedule-modal" class="flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-indigo-500/20 transition shrink-0">
+              <i class="fa-solid fa-plus text-sm"></i> Tambah Jadwal Baru
+            </button>
+          </div>
+        </div>
+
+        <!-- Schedule Cards Grid -->
+        <div id="schedule-cards-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+          <!-- Schedule cards injected dynamically -->
+        </div>
+
+        <!-- Empty State -->
+        <div id="schedule-empty-state" class="hidden text-center py-16 bg-slate-800/40 rounded-2xl border border-dashed border-slate-700">
+          <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center text-2xl">
+            <i class="fa-regular fa-calendar-xmark"></i>
+          </div>
+          <h4 class="text-base font-semibold text-slate-300">Belum Ada Jadwal Mengajar</h4>
+          <p class="text-xs text-slate-400 mt-1 max-w-sm mx-auto">Klik tombol "Tambah Jadwal Baru" di atas untuk memasukkan sesi bimbingan privat Anda.</p>
+        </div>
+
+      </section>
+
+      <!-- ========================================== -->
+      <!-- PANEL 2: PAPAN TULIS DIGITAL & FILE        -->
+      <!-- ========================================== -->
+      <section id="panel-whiteboard" class="panel-section hidden space-y-4">
+        
+        <!-- Whiteboard Toolbar -->
+        <div class="glass-panel p-3.5 rounded-2xl flex flex-wrap items-center justify-between gap-4 border border-slate-800">
+          
+          <!-- Drawing Tools, Custom Ideas & Palette -->
+          <div class="flex flex-wrap items-center gap-3">
+            <div class="flex bg-slate-800 p-1 rounded-xl border border-slate-700">
+              <button id="wb-tool-pen" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white flex items-center gap-1.5 transition" title="Mode Pena">
+                <i class="fa-solid fa-pen"></i>
+              </button>
+              <button id="wb-tool-text" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white flex items-center gap-1.5 transition" title="Ketik Teks">
+                <i class="fa-solid fa-t"></i>
+              </button>
+              <button id="wb-tool-sticky" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white flex items-center gap-1.5 transition" title="Tambah Sticky Note">
+                <i class="fa-solid fa-note-sticky"></i>
+              </button>
+              <button id="wb-tool-eraser" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white flex items-center gap-1.5 transition" title="Mode Penghapus">
+                <i class="fa-solid fa-eraser"></i>
+              </button>
+            </div>
+
+            <!-- Preset Colors -->
+            <div class="flex items-center gap-1.5 bg-slate-800 px-2 py-1.5 rounded-xl border border-slate-700">
+              <button data-color="#000000" class="wb-color-btn w-6 h-6 rounded-full bg-black border-2 border-white/80 transition transform hover:scale-110 active"></button>
+              <button data-color="#2563eb" class="wb-color-btn w-6 h-6 rounded-full bg-blue-600 transition transform hover:scale-110"></button>
+              <button data-color="#dc2626" class="wb-color-btn w-6 h-6 rounded-full bg-red-600 transition transform hover:scale-110"></button>
+              <input type="color" id="wb-color-picker" value="#000000" class="w-6 h-6 rounded-full border-0 cursor-pointer bg-transparent" title="Pilih Warna Custom">
+            </div>
+
+            <!-- Brush Size Slider -->
+            <div class="flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-700">
+              <span class="text-xs text-slate-400 font-medium">Ukuran:</span>
+              <input type="range" id="wb-line-width" min="1" max="40" value="4" class="w-20 accent-indigo-500">
+              <span id="wb-line-width-val" class="text-xs font-mono font-bold text-slate-300 w-5 text-center">4px</span>
+            </div>
+            
+            <!-- Upload File -->
+            <div class="relative">
+              <input type="file" id="wb-file-upload" multiple class="hidden">
+              <button onclick="document.getElementById('wb-file-upload').click()" class="px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-400 border border-emerald-500/30 rounded-xl text-xs font-medium flex items-center gap-1.5 transition" title="Upload & Simpan File Permanen">
+                <i class="fa-solid fa-cloud-arrow-up"></i> Upload Lampiran
+              </button>
+            </div>
+          </div>
+
+          <!-- Actions: Undo, Clear, Save -->
+          <div class="flex items-center gap-2">
+            <button id="wb-btn-undo" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-medium border border-slate-700 transition" title="Batal (Undo)"><i class="fa-solid fa-rotate-left"></i></button>
+            <button id="wb-btn-clear" class="px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 rounded-xl text-xs font-medium transition" title="Hapus Semua"><i class="fa-solid fa-trash-can"></i></button>
+            <button id="wb-btn-download" class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-md shadow-indigo-600/20 transition">
+              <i class="fa-solid fa-download"></i> Simpan PNG
+            </button>
+          </div>
+        </div>
+
+        <!-- File Categories Container dengan Pratinjau Visual (NEW) -->
+        <div id="file-categories-container" class="hidden grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+          <div class="bg-slate-800/50 p-3 rounded-xl border border-slate-700">
+            <h5 class="text-xs font-bold text-slate-300 mb-2 border-b border-slate-700 pb-1 flex items-center justify-between">
+              <span><i class="fa-regular fa-image text-blue-400 mr-1.5"></i> Gambar</span>
+              <span id="badge-count-gambar" class="text-[10px] bg-slate-700 px-1.5 py-0.5 rounded text-slate-300">0</span>
+            </h5>
+            <div id="list-file-gambar" class="space-y-2 max-h-60 overflow-y-auto pr-1"></div>
+          </div>
+          <div class="bg-slate-800/50 p-3 rounded-xl border border-slate-700">
+            <h5 class="text-xs font-bold text-slate-300 mb-2 border-b border-slate-700 pb-1 flex items-center justify-between">
+              <span><i class="fa-solid fa-file-pdf text-rose-400 mr-1.5"></i> Dokumen</span>
+              <span id="badge-count-dokumen" class="text-[10px] bg-slate-700 px-1.5 py-0.5 rounded text-slate-300">0</span>
+            </h5>
+            <div id="list-file-dokumen" class="space-y-2 max-h-60 overflow-y-auto pr-1"></div>
+          </div>
+          <div class="bg-slate-800/50 p-3 rounded-xl border border-slate-700">
+            <h5 class="text-xs font-bold text-slate-300 mb-2 border-b border-slate-700 pb-1 flex items-center justify-between">
+              <span><i class="fa-solid fa-film text-purple-400 mr-1.5"></i> Lainnya (Video/Audio)</span>
+              <span id="badge-count-lainnya" class="text-[10px] bg-slate-700 px-1.5 py-0.5 rounded text-slate-300">0</span>
+            </h5>
+            <div id="list-file-lainnya" class="space-y-2 max-h-60 overflow-y-auto pr-1"></div>
+          </div>
+        </div>
+
+        <!-- Canvas Container -->
+        <div class="relative w-full h-[600px] rounded-2xl overflow-hidden border border-slate-800 bg-white shadow-xl">
+          <canvas id="whiteboard-canvas" class="w-full h-full block"></canvas>
+        </div>
+      </section>
+
+      <!-- ========================================== -->
+      <!-- PANEL 3: KUIS & FLASHCARD INTERAKTIF       -->
+      <!-- ========================================== -->
+      <section id="panel-quiz-flashcard" class="panel-section hidden space-y-6">
+        
+        <!-- Navigation Sub-Tabs -->
+        <div class="flex border-b border-slate-800 space-x-4">
+          <button id="tab-quiz" class="pb-3 text-sm font-bold border-b-2 border-indigo-500 text-indigo-400 flex items-center gap-2">
+            <i class="fa-solid fa-circle-question"></i> Modul Kuis Pilihan Ganda
+          </button>
+          <button id="tab-flashcard" class="pb-3 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2">
+            <i class="fa-solid fa-cards-blank"></i> Modul Flashcard (Kartu Hafalan)
+          </button>
+        </div>
+
+        <!-- SUB-TAB 1: KUIS -->
+        <div id="subcontent-quiz" class="space-y-6">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h3 class="text-lg font-bold text-white">Bank Soal & Sesi Kuis</h3>
+              <p class="text-xs text-slate-400">Buat soal pilihan ganda atau langsung mainkan kuis bersama siswa</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button id="btn-start-quiz-play" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition shadow-lg shadow-emerald-600/20">
+                <i class="fa-solid fa-play"></i> Mainkan Kuis Sesi Ini
+              </button>
+              <button id="btn-open-quiz-modal" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition shadow-lg shadow-indigo-600/20">
+                <i class="fa-solid fa-plus"></i> Tambah Soal Baru
+              </button>
+            </div>
+          </div>
+
+          <!-- Quiz Question List (Tanpa Penunjuk Kunci Jawaban) -->
+          <div id="quiz-list-container" class="space-y-3">
+            <!-- Quiz items injected dynamically -->
+          </div>
+        </div>
+
+        <!-- SUB-TAB 2: FLASHCARD -->
+        <div id="subcontent-flashcard" class="hidden space-y-6">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h3 class="text-lg font-bold text-white">Kartu Hafalan Interaktif</h3>
+              <p class="text-xs text-slate-400">Klik kartu untuk memutar (3D Flip) dan melihat definisi/jawaban</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button id="btn-shuffle-flashcards" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-medium border border-slate-700 flex items-center gap-1.5 transition">
+                <i class="fa-solid fa-shuffle text-indigo-400"></i> Acak Kartu
+              </button>
+              <button id="btn-open-fc-modal" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition shadow-lg shadow-indigo-600/20">
+                <i class="fa-solid fa-plus"></i> Tambah Flashcard
+              </button>
+            </div>
+          </div>
+
+          <!-- Flashcard Viewer Arena -->
+          <div class="flex flex-col items-center justify-center max-w-xl mx-auto space-y-6 py-6">
+            
+            <!-- 3D Flip Card Container -->
+            <div id="flashcard-card-element" class="flashcard-container perspective-1000 w-full h-80 cursor-pointer">
+              <div class="flashcard-inner">
+                <!-- Front Side -->
+                <div class="flashcard-front glass-card border border-indigo-500/30 bg-gradient-to-br from-slate-800 via-slate-900 to-indigo-950/60">
+                  <span class="text-xs uppercase tracking-widest font-bold text-indigo-400 mb-4 bg-indigo-500/10 px-3 py-1 rounded-full border border-indigo-500/20">ISTILAH / PERTANYAAN</span>
+                  <h4 id="fc-display-term" class="text-2xl font-bold text-white text-center leading-relaxed">Loading...</h4>
+                  <p class="text-xs text-slate-400 mt-6"><i class="fa-solid fa-hand-pointer mr-1"></i> Klik untuk membalik kartu</p>
+                </div>
+                <!-- Back Side -->
+                <div class="flashcard-back glass-card border border-purple-500/30 bg-gradient-to-br from-slate-800 via-slate-900 to-purple-950/60">
+                  <span class="text-xs uppercase tracking-widest font-bold text-purple-400 mb-4 bg-purple-500/10 px-3 py-1 rounded-full border border-purple-500/20">DEFINISI / JAWABAN</span>
+                  <p id="fc-display-def" class="text-lg font-medium text-slate-200 text-center leading-relaxed">Loading...</p>
+                  <p class="text-xs text-slate-400 mt-6"><i class="fa-solid fa-hand-pointer mr-1"></i> Klik untuk kembali</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Card Controls -->
+            <div class="flex items-center justify-between w-full px-4">
+              <button id="fc-btn-prev" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold flex items-center gap-2 border border-slate-700 transition">
+                <i class="fa-solid fa-arrow-left"></i> Sebelum
+              </button>
+              
+              <span id="fc-counter" class="text-xs font-mono font-bold text-indigo-300 bg-slate-800 px-3 py-1.5 rounded-full border border-slate-700">Kartu 1 / 1</span>
+
+              <button id="fc-btn-next" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold flex items-center gap-2 border border-slate-700 transition">
+                Berikut <i class="fa-solid fa-arrow-right"></i>
+              </button>
+            </div>
+
+          </div>
+
+          <!-- Flashcard Grid Deck Manage (Disembunyikan Default) -->
+          <div class="border-t border-slate-800 pt-6">
+            <div class="flex items-center justify-between bg-slate-800/50 p-3 rounded-xl border border-slate-700">
+              <div>
+                <h4 class="text-sm font-bold text-slate-300"><i class="fa-solid fa-lock text-rose-400 mr-2"></i>Area Manajemen Kartu</h4>
+                <p class="text-[10px] text-slate-400">Sembunyikan area ini saat Share Screen agar siswa tidak melihat jawaban.</p>
+              </div>
+              <button id="btn-toggle-deck" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-xs font-medium transition">
+                Tampilkan Daftar Kartu <i class="fa-solid fa-chevron-down ml-1"></i>
+              </button>
+            </div>
+            
+            <!-- Grid dibungkus ID dan class hidden -->
+            <div id="flashcard-deck-container" class="hidden mt-4">
+              <div id="flashcard-deck-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- Deck cards injected dynamically -->
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </section>
+
+      <!-- ========================================== -->
+      <!-- PANEL 4: PENGATUR WAKTU & SESI (TIMER)     -->
+      <!-- ========================================== -->
+      <section id="panel-timer" class="panel-section hidden space-y-6">
+        
+        <div class="max-w-2xl mx-auto glass-panel p-6 sm:p-8 rounded-3xl border border-slate-800 text-center space-y-6">
+          
+          <div>
+            <h3 class="text-xl font-bold text-white">Pengatur Waktu Sesi Kelas</h3>
+            <p class="text-xs text-slate-400 mt-1">Gunakan timer untuk mengelola durasi latihan, materi, atau istirahat</p>
+          </div>
+
+          <!-- Session Label Input -->
+          <div class="max-w-md mx-auto">
+            <label for="timer-label-input" class="block text-xs font-semibold text-slate-400 mb-1">Label Sesi Pembelajaran:</label>
+            <input type="text" id="timer-label-input" value="Penjelasan Materi" class="w-full text-center px-4 py-2 bg-slate-800 border border-slate-700 rounded-xl text-sm font-semibold text-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          </div>
+
+          <!-- Circular Visual Timer Display -->
+          <div class="relative w-64 h-64 mx-auto flex items-center justify-center">
+            <svg class="w-full h-full" viewBox="0 0 100 100">
+              <!-- Background Circle -->
+              <circle cx="50" cy="50" r="45" class="text-slate-800 stroke-current" stroke-width="6" fill="transparent"></circle>
+              <!-- Progress Circle -->
+              <circle id="timer-progress-ring" cx="50" cy="50" r="45" class="timer-ring-circle text-indigo-500 stroke-current" stroke-width="6" stroke-linecap="round" fill="transparent" stroke-dasharray="282.74" stroke-dashoffset="0"></circle>
+            </svg>
+            <div class="absolute inset-0 flex flex-col items-center justify-center space-y-1">
+              <span id="timer-display-digits" class="text-5xl font-extrabold font-mono text-white tracking-wider">25:00</span>
+              <span id="timer-session-badge" class="text-xs font-semibold text-indigo-400 uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-indigo-500/10">BERJALAN</span>
+            </div>
+          </div>
+
+          <!-- Timer Preset Buttons -->
+          <div class="flex flex-wrap justify-center gap-2">
+            <button data-minutes="15" class="btn-timer-preset px-3.5 py-2 bg-slate-800 hover:bg-indigo-600 text-slate-300 hover:text-white rounded-xl text-xs font-semibold border border-slate-700 transition">15 Menit</button>
+            <button data-minutes="30" class="btn-timer-preset px-3.5 py-2 bg-slate-800 hover:bg-indigo-600 text-slate-300 hover:text-white rounded-xl text-xs font-semibold border border-slate-700 transition">30 Menit</button>
+            <button data-minutes="45" class="btn-timer-preset px-3.5 py-2 bg-slate-800 hover:bg-indigo-600 text-slate-300 hover:text-white rounded-xl text-xs font-semibold border border-slate-700 transition">45 Menit</button>
+            <button data-minutes="60" class="btn-timer-preset px-3.5 py-2 bg-slate-800 hover:bg-indigo-600 text-slate-300 hover:text-white rounded-xl text-xs font-semibold border border-slate-700 transition">60 Menit</button>
+          </div>
+
+          <!-- Custom Manual Input -->
+          <div class="flex items-center justify-center gap-3 pt-2">
+            <div class="flex items-center gap-1 bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-700">
+              <input type="number" id="timer-manual-min" min="0" max="180" value="25" class="w-12 text-center bg-transparent font-mono font-bold text-white text-sm focus:outline-none">
+              <span class="text-xs text-slate-400 font-medium">mnt</span>
+            </div>
+            <div class="flex items-center gap-1 bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-700">
+              <input type="number" id="timer-manual-sec" min="0" max="59" value="0" class="w-12 text-center bg-transparent font-mono font-bold text-white text-sm focus:outline-none">
+              <span class="text-xs text-slate-400 font-medium">det</span>
+            </div>
+            <button id="btn-timer-set-manual" class="px-3.5 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-xl text-xs font-semibold transition">
+              Atur Waktu
+            </button>
+          </div>
+
+          <!-- Main Controls -->
+          <div class="flex items-center justify-center gap-4 pt-4 border-t border-slate-800">
+            <button id="btn-timer-start-pause" class="w-36 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2 transition transform hover:scale-105 active:scale-95">
+              <i class="fa-solid fa-play"></i> <span>Mulai</span>
+            </button>
+            <button id="btn-timer-reset" class="px-5 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-sm font-semibold border border-slate-700 flex items-center gap-2 transition">
+              <i class="fa-solid fa-rotate-left"></i> Reset
+            </button>
+          </div>
+
+        </div>
+
+      </section>
+
+      <!-- ========================================== -->
+      <!-- PANEL 5: PENGACAK NAMA & KELOMPOK          -->
+      <!-- ========================================== -->
+      <section id="panel-randomizer" class="panel-section hidden space-y-6">
+        
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          
+          <!-- Left Column: Input Students List -->
+          <div class="lg:col-span-5 glass-panel p-5 rounded-2xl border border-slate-800 space-y-4">
+            <div class="flex items-center justify-between">
+              <h3 class="text-base font-bold text-white">Daftar Nama Siswa</h3>
+              <button id="btn-load-students-from-attendance" class="text-xs text-indigo-400 hover:text-indigo-300 font-medium">
+                <i class="fa-solid fa-arrows-rotate mr-1"></i> Muat Dari Kehadiran
+              </button>
+            </div>
+            <p class="text-xs text-slate-400">Ketik atau tempel daftar nama siswa (pisahkan 1 nama per baris):</p>
+            <textarea id="randomizer-names-textarea" rows="12" placeholder="Andi Prasetyo&#10;Budi Santoso&#10;Citra Lestari&#10;Dewi Anggraini&#10;Eko Wijaya" class="w-full p-3.5 bg-slate-900 border border-slate-700 rounded-xl text-sm text-slate-200 font-mono placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 leading-relaxed"></textarea>
+            <div class="flex items-center justify-between text-xs text-slate-400">
+              <span id="randomizer-total-names-count">Total Nama: 0</span>
+              <button id="btn-clear-randomizer-names" class="text-rose-400 hover:text-rose-300">Hapus Semua</button>
+            </div>
+          </div>
+
+          <!-- Right Column: Actions & Results -->
+          <div class="lg:col-span-7 space-y-6">
+            
+            <!-- Option 1: Acak 1 Nama (Roulette) -->
+            <div class="glass-panel p-6 rounded-2xl border border-slate-800 space-y-4">
+              <div class="flex items-center justify-between">
+                <div>
+                  <h4 class="text-base font-bold text-white">Acak 1 Nama (Panggilan Siswa)</h4>
+                  <p class="text-xs text-slate-400">Pilih 1 siswa secara acak dengan animasi roulette berputar</p>
+                </div>
+                <button id="btn-pick-one-student" class="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-indigo-600/20 flex items-center gap-2 transition shrink-0">
+                  <i class="fa-solid fa-dice"></i> Acak Sekarang!
+                </button>
+              </div>
+
+              <!-- Selected Name Display Box -->
+              <div id="roulette-box" class="h-32 bg-slate-950 border-2 border-indigo-500/40 rounded-xl flex items-center justify-center p-4 relative overflow-hidden">
+                <span id="roulette-display-name" class="text-2xl sm:text-3xl font-extrabold text-indigo-400 text-center tracking-wide">
+                  --- Klik Tombol Acak ---
+                </span>
+              </div>
+            </div>
+
+            <!-- Option 2: Acak Kelompok -->
+            <div class="glass-panel p-6 rounded-2xl border border-slate-800 space-y-4">
+              <div>
+                <h4 class="text-base font-bold text-white">Acak Pembagian Kelompok</h4>
+                <p class="text-xs text-slate-400">Bagi daftar nama ke dalam kelompok secara acak</p>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+                <div>
+                  <label for="group-mode-select" class="block text-xs font-semibold text-slate-400 mb-1">Mode Pembagian:</label>
+                  <select id="group-mode-select" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <option value="num_groups">Jumlah Kelompok</option>
+                    <option value="per_group">Siswa per Kelompok</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label id="group-number-label" for="group-number-input" class="block text-xs font-semibold text-slate-400 mb-1">Jumlah Kelompok:</label>
+                  <input type="number" id="group-number-input" min="1" max="50" value="2" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+
+                <div class="flex items-center gap-2">
+                  <button id="btn-generate-groups" class="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition">
+                    <i class="fa-solid fa-users"></i> Bagi Kelompok
+                  </button>
+                  <!-- TOMBOL RESET -->
+                  <button id="btn-reset-groups" class="px-3 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-xl text-xs font-semibold flex items-center justify-center transition" title="Hapus Hasil">
+                    <i class="fa-solid fa-trash-can"></i>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Group Cards Output Grid -->
+              <div id="group-results-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                <!-- Group cards injected dynamically -->
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+
+      </section>
+
+      <!-- ========================================== -->
+      <!-- PANEL 6: CATATAN SISWA & KEHADIRAN         -->
+      <!-- ========================================== -->
+      <section id="panel-attendance" class="panel-section hidden space-y-6">
+        
+        <!-- Summary Stat Badges -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div class="glass-panel p-4 rounded-2xl border border-slate-800 flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-lg font-bold">
+              <i class="fa-solid fa-user-check"></i>
+            </div>
+            <div>
+              <span id="stat-count-hadir" class="text-xl font-extrabold text-white">0</span>
+              <p class="text-xs text-slate-400">Total Hadir</p>
+            </div>
+          </div>
+          <div class="glass-panel p-4 rounded-2xl border border-slate-800 flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center text-lg font-bold">
+              <i class="fa-solid fa-user-clock"></i>
+            </div>
+            <div>
+              <span id="stat-count-izin" class="text-xl font-extrabold text-white">0</span>
+              <p class="text-xs text-slate-400">Total Izin</p>
+            </div>
+          </div>
+          <div class="glass-panel p-4 rounded-2xl border border-slate-800 flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-lg font-bold">
+              <i class="fa-solid fa-notes-medical"></i>
+            </div>
+            <div>
+              <span id="stat-count-sakit" class="text-xl font-extrabold text-white">0</span>
+              <p class="text-xs text-slate-400">Total Sakit</p>
+            </div>
+          </div>
+          <div class="glass-panel p-4 rounded-2xl border border-slate-800 flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-rose-500/20 text-rose-400 flex items-center justify-center text-lg font-bold">
+              <i class="fa-solid fa-user-xmark"></i>
+            </div>
+            <div>
+              <span id="stat-count-alfa" class="text-xl font-extrabold text-white">0</span>
+              <p class="text-xs text-slate-400">Total Alfa</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Controls & Add Button -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div class="flex items-center gap-3">
+            <input type="text" id="search-attendance" placeholder="Cari nama siswa / catatan..." class="px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-64">
+            <select id="filter-attendance-status" class="px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              <option value="ALL">Semua Kehadiran</option>
+              <option value="Hadir">Hadir</option>
+              <option value="Izin">Izin</option>
+              <option value="Sakit">Sakit</option>
+              <option value="Alfa">Alfa</option>
+            </select>
+          </div>
+          <button id="btn-open-attendance-modal" class="px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-indigo-600/20 flex items-center gap-2 transition shrink-0">
+            <i class="fa-solid fa-plus"></i> Catat Kehadiran Baru
+          </button>
+        </div>
+
+        <!-- Attendance Interactive Table -->
+        <div class="glass-panel rounded-2xl border border-slate-800 overflow-hidden shadow-xl">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr class="bg-slate-800/80 text-slate-400 font-semibold border-b border-slate-700">
+                  <th class="p-3.5 pl-5">Tanggal</th>
+                  <th class="p-3.5">Nama Siswa</th>
+                  <th class="p-3.5">Status Kehadiran</th>
+                  <th class="p-3.5">Catatan Belajar / PR</th>
+                  <th class="p-3.5 pr-5 text-right">Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="attendance-table-body" class="divide-y divide-slate-800/60 text-slate-300">
+                <!-- Rows injected dynamically -->
+              </tbody>
+            </table>
+          </div>
+          
+          <!-- Table Empty State -->
+          <div id="attendance-empty-state" class="hidden text-center py-12">
+            <p class="text-xs text-slate-400">Belum ada riwayat catatan kehadiran. Klik "Catat Kehadiran Baru" di atas.</p>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ========================================== -->
+      <!-- PANEL 7: VIDEO CALL (PEERJS / WEBRTC)      -->
+      <!-- ========================================== -->
+      <section id="panel-videocall" class="panel-section hidden space-y-5">
+
+        <!-- Info banner: perlu hosting online -->
+        <div id="vc-hosting-warning" class="glass-panel p-4 rounded-2xl border border-amber-500/30 bg-amber-500/5 flex items-start gap-3">
+          <i class="fa-solid fa-triangle-exclamation text-amber-400 mt-0.5"></i>
+          <p class="text-xs text-amber-200 leading-relaxed">
+            Fitur ini butuh koneksi internet aktif (server signaling PeerJS publik). Agar siswa bisa membuka <b>link undangan</b>, file ini sebaiknya di-hosting online (mis. GitHub Pages / Netlify) — bukan dibuka langsung dari file lokal di komputer Anda.
+          </p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+          <!-- Kolom Kontrol -->
+          <div class="lg:col-span-1 space-y-4">
+
+            <!-- Card: ID Saya / Undang Siswa -->
+            <div class="glass-panel p-4 rounded-2xl border border-slate-800 space-y-3">
+              <h4 class="text-sm font-bold text-white flex items-center gap-2"><i class="fa-solid fa-chalkboard-user text-indigo-400"></i> Mulai Kelas (Sebagai Guru)</h4>
+              <p class="text-xs text-slate-400">Room ID Anda:</p>
+              <div class="flex items-center gap-2">
+                <input type="text" id="vc-my-id" readonly placeholder="Menghubungkan..." class="flex-1 px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs font-mono text-white">
+                <button id="vc-copy-link" class="shrink-0 px-3 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold transition" title="Salin Link Undangan">
+                  <i class="fa-solid fa-link"></i>
+                </button>
+              </div>
+              <button id="vc-start-media" class="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-indigo-500/20 transition">
+                <i class="fa-solid fa-camera"></i> Aktifkan Kamera & Mic
+              </button>
+            </div>
+
+            <!-- Card: Gabung sebagai Siswa -->
+            <div class="glass-panel p-4 rounded-2xl border border-slate-800 space-y-3">
+              <h4 class="text-sm font-bold text-white flex items-center gap-2"><i class="fa-solid fa-user-graduate text-emerald-400"></i> Gabung Kelas (Sebagai Siswa)</h4>
+              <input type="text" id="vc-join-id" placeholder="Tempel Room ID Guru di sini" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs font-mono text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+              <button id="vc-join-btn" class="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold transition">
+                <i class="fa-solid fa-right-to-bracket"></i> Gabung Sekarang
+              </button>
+            </div>
+
+            <!-- Status -->
+            <div class="glass-panel p-4 rounded-2xl border border-slate-800">
+              <p class="text-xs text-slate-400 mb-1">Status Koneksi</p>
+              <p id="vc-status-text" class="text-sm font-bold text-slate-300"><i class="fa-solid fa-circle text-slate-600 text-[8px] mr-1.5"></i>Belum terhubung</p>
+            </div>
+          </div>
+
+          <!-- Kolom Video -->
+          <div class="lg:col-span-2 space-y-3">
+            <div class="relative bg-black rounded-2xl overflow-hidden border border-slate-800 aspect-video flex items-center justify-center">
+              <video id="vc-remote-video" autoplay playsinline class="w-full h-full object-cover"></video>
+              <div id="vc-remote-empty" class="absolute inset-0 flex flex-col items-center justify-center text-slate-600 gap-2">
+                <i class="fa-solid fa-user-slash text-3xl"></i>
+                <span class="text-xs">Menunggu lawan bicara terhubung...</span>
+              </div>
+              <!-- Local Video PiP -->
+              <video id="vc-local-video" autoplay playsinline muted class="absolute bottom-3 right-3 w-28 sm:w-40 aspect-video object-cover rounded-xl border-2 border-slate-700 shadow-lg bg-slate-900"></video>
+            </div>
+
+            <!-- Control Bar -->
+            <div class="glass-panel p-3 rounded-2xl border border-slate-800 flex items-center justify-center gap-3 flex-wrap">
+              <button id="vc-toggle-mic" disabled class="w-11 h-11 rounded-full bg-slate-800 hover:bg-slate-700 text-white flex items-center justify-center transition disabled:opacity-40" title="Mute/Unmute Mic">
+                <i class="fa-solid fa-microphone"></i>
+              </button>
+              <button id="vc-toggle-cam" disabled class="w-11 h-11 rounded-full bg-slate-800 hover:bg-slate-700 text-white flex items-center justify-center transition disabled:opacity-40" title="Nyalakan/Matikan Kamera">
+                <i class="fa-solid fa-video"></i>
+              </button>
+              <button id="vc-toggle-screen" disabled class="w-11 h-11 rounded-full bg-slate-800 hover:bg-slate-700 text-white flex items-center justify-center transition disabled:opacity-40" title="Bagikan Layar">
+                <i class="fa-solid fa-desktop"></i>
+              </button>
+              <button id="vc-end-call" disabled class="w-11 h-11 rounded-full bg-rose-600 hover:bg-rose-500 text-white flex items-center justify-center transition disabled:opacity-40" title="Akhiri Panggilan">
+                <i class="fa-solid fa-phone-slash"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+    </div>
+  </main>
+
+  <!-- ========================================== -->
+  <!-- MODALS CONTAINER                           -->
+  <!-- ========================================== -->
+
+  <!-- 1. Modal Form Schedule -->
+  <div id="modal-schedule" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm hidden">
+    <div class="glass-panel w-full max-w-md p-6 rounded-2xl border border-slate-700 space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 id="modal-schedule-title" class="text-base font-bold text-white">Tambah Jadwal Baru</h3>
+        <button class="close-modal-btn text-slate-400 hover:text-white p-1"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <form id="form-schedule" class="space-y-3.5">
+        <input type="hidden" id="sched-id">
+        
+        <div>
+          <label for="sched-datetime" class="block text-xs font-semibold text-slate-300 mb-1">Hari/Tanggal & Waktu *</label>
+          <input type="datetime-local" id="sched-datetime" required class="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        </div>
+
+        <div>
+          <label for="sched-student" class="block text-xs font-semibold text-slate-300 mb-1">Nama Siswa / Kelas *</label>
+          <input type="text" id="sched-student" placeholder="Contoh: Budi (Kelas 10 SMA)" required class="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        </div>
+
+        <div>
+          <label for="sched-subject" class="block text-xs font-semibold text-slate-300 mb-1">Mata Pelajaran / Topik *</label>
+          <input type="text" id="sched-subject" placeholder="Contoh: Matematika - Persamaan Kuadrat" required class="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        </div>
+
+        <div>
+          <label for="sched-link" class="block text-xs font-semibold text-slate-300 mb-1">Link Pertemuan / Lokasi Offline</label>
+          <input type="text" id="sched-link" placeholder="https://zoom.us/j/... atau Rumah Siswa" class="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
+          <button type="button" class="close-modal-btn px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-medium">Batal</button>
+          <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold">Simpan Jadwal</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 2. Modal Form Quiz Question -->
+  <div id="modal-quiz" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm hidden">
+    <div class="glass-panel w-full max-w-lg p-6 rounded-2xl border border-slate-700 space-y-4 overflow-y-auto max-h-[90vh]">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 id="modal-quiz-title" class="text-base font-bold text-white">Tambah Soal Kuis</h3>
+        <button class="close-modal-btn text-slate-400 hover:text-white p-1"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <form id="form-quiz" class="space-y-3.5">
+        <input type="hidden" id="quiz-id">
+        
+        <div>
+          <label for="quiz-question" class="block text-xs font-semibold text-slate-300 mb-1">Pertanyaan / Soal *</label>
+          <textarea id="quiz-question" rows="3" required placeholder="Tuliskan pertanyaan kuis di sini..." class="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label for="quiz-opt-a" class="block text-xs font-semibold text-slate-300 mb-1">Opsi A *</label>
+            <input type="text" id="quiz-opt-a" required class="w-full px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          </div>
+          <div>
+            <label for="quiz-opt-b" class="block text-xs font-semibold text-slate-300 mb-1">Opsi B *</label>
+            <input type="text" id="quiz-opt-b" required class="w-full px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          </div>
+          <div>
+            <label for="quiz-opt-c" class="block text-xs font-semibold text-slate-300 mb-1">Opsi C *</label>
+            <input type="text" id="quiz-opt-c" required class="w-full px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          </div>
+          <div>
+            <label for="quiz-opt-d" class="block text-xs font-semibold text-slate-300 mb-1">Opsi D *</label>
+            <input type="text" id="quiz-opt-d" required class="w-full px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          </div>
+        </div>
+
+        <div>
+          <label for="quiz-correct-index" class="block text-xs font-semibold text-slate-300 mb-1">Jawaban Benar *</label>
+          <select id="quiz-correct-index" required class="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-emerald-400 font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <option value="0">Opsi A</option>
+            <option value="1">Opsi B</option>
+            <option value="2">Opsi C</option>
+            <option value="3">Opsi D</option>
+          </select>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
+          <button type="button" class="close-modal-btn px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-medium">Batal</button>
+          <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold">Simpan Soal</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 3. Modal Quiz Player (Interactive Quiz Sesi) -->
+  <div id="modal-quiz-play" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md hidden">
+    <div class="glass-panel w-full max-w-xl p-6 sm:p-8 rounded-3xl border border-slate-700 space-y-6">
+      
+      <!-- Quiz Play Header -->
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-gamepad text-indigo-400"></i>
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-300">Sesi Kuis Interaktif</span>
+        </div>
+        <button id="btn-close-quiz-play" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+
+      <!-- Quiz Arena Body -->
+      <div id="quiz-play-arena" class="space-y-5">
+        <!-- Progress Bar -->
+        <div class="flex items-center justify-between text-xs text-slate-400">
+          <span id="quiz-play-counter">Soal 1 dari 5</span>
+          <span id="quiz-play-score-live">Skor: 0</span>
+        </div>
+        <div class="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+          <div id="quiz-play-progress-bar" class="bg-indigo-500 h-full transition-all duration-300" style="width: 20%"></div>
+        </div>
+
+        <!-- Question Display -->
+        <h4 id="quiz-play-question-text" class="text-lg font-bold text-white leading-relaxed">Pertanyaan...</h4>
+
+        <!-- Option Buttons Grid -->
+        <div id="quiz-play-options-container" class="space-y-2.5">
+          <!-- Option buttons dynamically generated -->
+        </div>
+
+        <!-- Feedback & Next Button -->
+        <div id="quiz-play-feedback-box" class="hidden p-3.5 rounded-xl border text-xs font-semibold flex items-center justify-between">
+          <span id="quiz-play-feedback-text">Umpan balik</span>
+          <button id="btn-quiz-play-next" class="px-3.5 py-1.5 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-500 transition">
+            Lanjut <i class="fa-solid fa-arrow-right ml-1"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Quiz Summary End Card -->
+      <div id="quiz-play-summary" class="hidden text-center py-6 space-y-4">
+        <div class="w-20 h-20 mx-auto rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-4xl shadow-xl shadow-indigo-500/20">
+          <i class="fa-solid fa-trophy"></i>
+        </div>
+        <h3 class="text-2xl font-bold text-white">Kuis Selesai!</h3>
+        <p class="text-xs text-slate-400">Hasil Performa Sesi Pembelajaran Ini:</p>
+        <div class="p-4 bg-slate-800/80 rounded-2xl border border-slate-700 inline-block px-8">
+          <span id="quiz-final-score" class="text-4xl font-extrabold text-indigo-400 font-mono">100%</span>
+          <p id="quiz-final-detail" class="text-xs text-slate-300 mt-1">Benar 5 dari 5 Soal</p>
+        </div>
+        <div class="pt-2">
+          <button id="btn-quiz-restart" class="px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl text-xs font-bold shadow-lg shadow-indigo-600/30">
+            <i class="fa-solid fa-rotate-right mr-1.5"></i> Ulangi Kuis
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 4. Modal Form Flashcard -->
+  <div id="modal-fc" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm hidden">
+    <div class="glass-panel w-full max-w-md p-6 rounded-2xl border border-slate-700 space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 id="modal-fc-title" class="text-base font-bold text-white">Tambah Flashcard Baru</h3>
+        <button class="close-modal-btn text-slate-400 hover:text-white p-1"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <form id="form-fc" class="space-y-3.5">
+        <input type="hidden" id="fc-id">
+        
+        <div>
+          <label for="fc-term" class="block text-xs font-semibold text-slate-300 mb-1">Istilah / Pertanyaan (Sisi Depan) *</label>
+          <input type="text" id="fc-term" required placeholder="Contoh: Photosynthesis" class="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        </div>
+
+        <div>
+          <label for="fc-def" class="block text-xs font-semibold text-slate-300 mb-1">Definisi / Jawaban (Sisi Belakang) *</label>
+          <textarea id="fc-def" rows="3" required placeholder="Contoh: Proses tumbuhan mengubah cahaya menjadi energi kimia..." class="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
+          <button type="button" class="close-modal-btn px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-medium">Batal</button>
+          <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold">Simpan Kartu</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 5. Modal Form Attendance -->
+  <div id="modal-attendance" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm hidden">
+    <div class="glass-panel w-full max-w-md p-6 rounded-2xl border border-slate-700 space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 id="modal-attendance-title" class="text-base font-bold text-white">Catat Kehadiran Siswa</h3>
+        <button class="close-modal-btn text-slate-400 hover:text-white p-1"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <form id="form-attendance" class="space-y-3.5">
+        <input type="hidden" id="att-id">
+        
+        <div>
+          <label for="att-date" class="block text-xs font-semibold text-slate-300 mb-1">Tanggal *</label>
+          <input type="date" id="att-date" required class="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        </div>
+
+        <div>
+          <label for="att-student" class="block text-xs font-semibold text-slate-300 mb-1">Nama Siswa *</label>
+          <input type="text" id="att-student" required placeholder="Contoh: Budi Santoso" class="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        </div>
+
+        <div>
+          <label for="att-status" class="block text-xs font-semibold text-slate-300 mb-1">Status Kehadiran *</label>
+          <select id="att-status" required class="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <option value="Hadir">Hadir</option>
+            <option value="Izin">Izin</option>
+            <option value="Sakit">Sakit</option>
+            <option value="Alfa">Alfa</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="att-notes" class="block text-xs font-semibold text-slate-300 mb-1">Catatan Belajar / PR / Progress</label>
+          <textarea id="att-notes" rows="3" placeholder="Contoh: Memahami bab 3, ada PR matematika hal 45..." class="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
+          <button type="button" class="close-modal-btn px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-medium">Batal</button>
+          <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold">Simpan Data</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 6. Modal Form Settings (Pengaturan Tampilan) -->
+  <div id="modal-settings" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm hidden">
+    <div class="glass-panel w-full max-w-sm p-6 rounded-2xl border border-slate-700 space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 class="text-base font-bold text-white"><i class="fa-solid fa-gear mr-2 text-slate-400"></i>Pengaturan</h3>
+        <button class="close-modal-btn text-slate-400 hover:text-white p-1"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <form id="form-settings" class="space-y-3.5">
+        <div>
+          <label for="setting-app-name" class="block text-xs font-semibold text-slate-300 mb-1">Nama Aplikasi</label>
+          <input type="text" id="setting-app-name" placeholder="EduFlow" class="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        </div>
+        <div>
+          <label for="setting-app-subtitle" class="block text-xs font-semibold text-slate-300 mb-1">Sub Judul</label>
+          <input type="text" id="setting-app-subtitle" placeholder="Dashboard Guru Privat" class="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        </div>
+        <div>
+          <label for="setting-user-name" class="block text-xs font-semibold text-slate-300 mb-1">Nama Tampilan Pengguna</label>
+          <input type="text" id="setting-user-name" placeholder="Pengajar Les" class="w-full px-3.5 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
+          <button type="button" class="close-modal-btn px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-medium">Batal</button>
+          <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold">Simpan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="fixed bottom-5 right-5 z-50 space-y-2 pointer-events-none"></div>
+
+  <!-- 7. Modal Preview Lampiran (In-App, tanpa download) -->
+  <div id="modal-file-preview" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md hidden">
+    <div class="glass-panel w-full max-w-4xl max-h-[92vh] p-4 rounded-2xl border border-slate-700 flex flex-col">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3 mb-3">
+        <p id="preview-file-name" class="text-sm font-bold text-white truncate pr-3"></p>
+        <div class="flex items-center gap-2 shrink-0">
+          <a id="preview-file-download" href="#" class="px-3 py-1.5 bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 border border-indigo-500/30 rounded-xl text-xs font-medium flex items-center gap-1.5 transition" title="Unduh File">
+            <i class="fa-solid fa-download"></i> Unduh
+          </a>
+          <button class="close-modal-btn text-slate-400 hover:text-white p-1"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+      </div>
+      <div id="preview-file-body" class="flex-1 overflow-auto flex items-start justify-center min-h-[200px] bg-slate-950/40 rounded-lg p-3"></div>
+    </div>
+  </div>
+
+  <!-- SINGLE FILE EMBEDDED JAVASCRIPT LOGIC -->
+  <script>
+    /**
+     * EduFlow Dashboard - Self-Contained Application Logic
+     * Single File HTML Implementation (Vanilla JS ES6+)
+     */
+    // ==========================================
+    // LOGIC MODE SISWA: Halaman join full-screen
+    // Terpisah total dari dashboard guru — siswa
+    // TIDAK PERNAH melihat sidebar/jadwal/kuis/absensi.
+    // ==========================================
+    function initStudentJoinFlow(roomId) {
+      const subtitle    = document.getElementById('student-join-subtitle');
+      const joinBtn      = document.getElementById('sv-join-btn');
+      const statusText   = document.getElementById('sv-status-text');
+      const localVideo   = document.getElementById('sv-local-video');
+      const remoteVideo  = document.getElementById('sv-remote-video');
+      const remoteEmpty  = document.getElementById('sv-remote-empty');
+      const controls     = document.getElementById('sv-controls');
+      const micBtn       = document.getElementById('sv-toggle-mic');
+      const camBtn       = document.getElementById('sv-toggle-cam');
+      const endBtn       = document.getElementById('sv-end-call');
+
+      subtitle.textContent = 'Klik tombol di bawah untuk mengaktifkan kamera & bergabung ke kelas';
+
+      let peer = null;
+      let localStream = null;
+      let currentCall = null;
+      let micOn = true;
+      let camOn = true;
+
+      function setStatus(text, colorClass) {
+        statusText.innerHTML = `<i class="fa-solid fa-circle text-[8px] mr-1.5 ${colorClass}"></i>${text}`;
+      }
+
+      joinBtn.addEventListener('click', async () => {
+        joinBtn.disabled = true;
+        joinBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Menghubungkan...';
+        try {
+          localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+          localVideo.srcObject = localStream;
+          localVideo.classList.remove('hidden');
+          controls.classList.remove('hidden');
+          joinBtn.classList.add('hidden');
+          setStatus('Menghubungi guru...', 'text-amber-400');
+
+          peer = new Peer();
+          peer.on('open', () => {
+            const call = peer.call(roomId, localStream);
+            if (!call) {
+              setStatus('Gagal terhubung. Cek link undangan.', 'text-rose-400');
+              return;
+            }
+            currentCall = call;
+            call.on('stream', (remoteStream) => {
+              remoteVideo.srcObject = remoteStream;
+              remoteEmpty.classList.add('hidden');
+              setStatus('Terhubung dengan guru', 'text-emerald-400');
+            });
+            call.on('close', () => {
+              setStatus('Panggilan diakhiri', 'text-slate-400');
+              remoteVideo.srcObject = null;
+              remoteEmpty.classList.remove('hidden');
+            });
+            call.on('error', () => {
+              setStatus('Terjadi kesalahan koneksi', 'text-rose-400');
+            });
+          });
+          peer.on('error', (err) => {
+            console.error(err);
+            setStatus('Terjadi kesalahan koneksi', 'text-rose-400');
+          });
+        } catch (err) {
+          console.error(err);
+          setStatus('Gagal mengakses kamera/mic', 'text-rose-400');
+          joinBtn.disabled = false;
+          joinBtn.innerHTML = '<i class="fa-solid fa-video"></i> Aktifkan Kamera & Gabung Kelas';
+        }
+      });
+
+      micBtn.addEventListener('click', () => {
+        if (!localStream) return;
+        micOn = !micOn;
+        localStream.getAudioTracks().forEach(t => t.enabled = micOn);
+        micBtn.innerHTML = micOn ? '<i class="fa-solid fa-microphone"></i>' : '<i class="fa-solid fa-microphone-slash"></i>';
+        micBtn.classList.toggle('bg-rose-600', !micOn);
+      });
+
+      camBtn.addEventListener('click', () => {
+        if (!localStream) return;
+        camOn = !camOn;
+        localStream.getVideoTracks().forEach(t => t.enabled = camOn);
+        camBtn.innerHTML = camOn ? '<i class="fa-solid fa-video"></i>' : '<i class="fa-solid fa-video-slash"></i>';
+        camBtn.classList.toggle('bg-rose-600', !camOn);
+      });
+
+      endBtn.addEventListener('click', () => {
+        if (currentCall) currentCall.close();
+        if (peer) peer.destroy();
+        if (localStream) localStream.getTracks().forEach(t => t.stop());
+        setStatus('Anda telah keluar dari kelas', 'text-slate-400');
+        controls.classList.add('hidden');
+        remoteVideo.srcObject = null;
+        remoteEmpty.classList.remove('hidden');
+        subtitle.textContent = 'Anda sudah keluar dari kelas ini';
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+
+      // ==========================================
+      // DETEKSI MODE SISWA (?room=xxx di URL)
+      // Kalau terdeteksi, tampilkan HANYA halaman
+      // join video call & JANGAN render dashboard
+      // guru sama sekali (sidebar, jadwal, dll).
+      // ==========================================
+      const urlParams = new URLSearchParams(window.location.search);
+      const studentRoomId = urlParams.get('room');
+
+      if (studentRoomId) {
+        document.getElementById('student-join-view').classList.remove('hidden');
+        document.querySelectorAll('body > header, body > #sidebar-overlay, body > #sidebar, body > main').forEach(el => el.classList.add('hidden'));
+        initStudentJoinFlow(studentRoomId);
+        return; // stop di sini, jangan jalankan logic dashboard guru
+      }
+
+      const STORAGE_KEY = 'eduflow_dashboard_v1_data';
+
+      // Seed Default Data
+      const DEFAULT_DATA = {
+        settings: {
+          appName: 'EduFlow',
+          appSubtitle: 'Dashboard Guru Privat',
+          userName: 'Pengajar Les'
+        },
+        whiteboardFiles: [], // Menyimpan lampiran file secara permanen dalam format Base64
+        schedules: [
+          {
+            id: 'sch-1',
+            datetime: new Date(Date.now() + 3600000 * 2).toISOString().slice(0, 16),
+            student: 'Budi Santoso (Kelas 10 SMA)',
+            subject: 'Matematika - Persamaan Kuadrat & Fungsi',
+            link: 'https://zoom.us/j/987654321'
+          },
+          {
+            id: 'sch-2',
+            datetime: new Date(Date.now() + 3600000 * 26).toISOString().slice(0, 16),
+            student: 'Siti Rahma (Kelas 12 SMA)',
+            subject: 'Fisika - Gelombang Elektromagnetik',
+            link: 'Rumah Siswa (Offline - Jl. Mawar No. 12)'
+          },
+          {
+            id: 'sch-3',
+            datetime: new Date(Date.now() + 3600000 * 50).toISOString().slice(0, 16),
+            student: 'Kelompok UTBK 3',
+            subject: 'Bahasa Inggris - Reading Comprehension',
+            link: 'https://meet.google.com/abc-defg-hij'
+          }
+        ],
+        quizzes: [
+          {
+            id: 'qz-1',
+            question: 'Apakah hasil dari turunan pertama f(x) = 3x² + 5x - 7 ?',
+            options: ['6x + 5', '3x + 5', '6x - 7', '3x² + 5'],
+            correctIndex: 0
+          },
+          {
+            id: 'qz-2',
+            question: 'Manakah di antara zat berikut yang termasuk contoh unsur kimia?',
+            options: ['Air (H2O)', 'Garam Dapur (NaCl)', 'Emas (Au)', 'Udara'],
+            correctIndex: 2
+          },
+          {
+            id: 'qz-3',
+            question: 'Hukum Newton ke berapa yang menyatakan F = m × a ?',
+            options: ['Hukum Newton I', 'Hukum Newton II', 'Hukum Newton III', 'Hukum Newton IV'],
+            correctIndex: 1
+          }
+        ],
+        flashcards: [
+          {
+            id: 'fc-1',
+            term: 'Photosynthesis',
+            def: 'Proses biologi di mana tumbuhan hijau mengubah energi cahaya matahari menjadi energi kimia dalam bentuk glukosa.'
+          },
+          {
+            id: 'fc-2',
+            term: 'Phytagoras Theorem',
+            def: 'Pada segitiga siku-siku, kuadrat sisi miring sama dengan jumlah kuadrat kedua sisi siku-sikunya (a² + b² = c²).'
+          },
+          {
+            id: 'fc-3',
+            term: 'Mitosis',
+            def: 'Proses pembelahan sel yang menghasilkan dua sel anak identik dengan jumlah kromosom yang sama dengan sel induk.'
+          }
+        ],
+        attendance: [
+          {
+            id: 'att-1',
+            date: new Date().toISOString().slice(0, 10),
+            student: 'Budi Santoso',
+            status: 'Hadir',
+            notes: 'Sangat aktif saat pembahasan soal persamaan kuadrat. PR halaman 45 dikerjakan lengkap.'
+          },
+          {
+            id: 'att-2',
+            date: new Date(Date.now() - 86400000).toISOString().slice(0, 10),
+            student: 'Siti Rahma',
+            status: 'Hadir',
+            notes: 'Memahami konsep hukum Newton. Catatan: perlu latihan tambahan untuk soal grafik V-t.'
+          },
+          {
+            id: 'att-3',
+            date: new Date(Date.now() - 86400000 * 2).toISOString().slice(0, 10),
+            student: 'Citra Lestari',
+            status: 'Izin',
+            notes: 'Ada kegiatan ekstrakurikuler sekolah. Sesi diganti ke hari Sabtu jam 16:00.'
+          }
+        ],
+        randomizerNames: "Budi Santoso\nSiti Rahma\nCitra Lestari\nDewi Anggraini\nEko Wijaya\nFajar Pratama\nGilang Ramadhan"
+      };
+
+      function loadState() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) {
+            saveState(DEFAULT_DATA);
+            return JSON.parse(JSON.stringify(DEFAULT_DATA));
+          }
+          const parsed = JSON.parse(raw);
+          if (!parsed.settings) parsed.settings = JSON.parse(JSON.stringify(DEFAULT_DATA.settings));
+          if (!parsed.whiteboardFiles) parsed.whiteboardFiles = [];
+          return parsed;
+        } catch (e) {
+          console.error("Gagal membaca LocalStorage:", e);
+          return JSON.parse(JSON.stringify(DEFAULT_DATA));
+        }
+      }
+
+      function saveState(stateObj) {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(stateObj));
+        } catch (e) {
+          console.error("Gagal menyimpan ke LocalStorage:", e);
+          showToast("LocalStorage penuh atau diblokir. Tidak dapat menyimpan lampiran besar.", "error");
+        }
+      }
+
+      let appState = loadState();
+
+      // RENDER SETTINGS HEADER
+      function renderSettingsUI() {
+        const s = appState.settings || DEFAULT_DATA.settings;
+        const titleEl = document.getElementById('app-display-title');
+        const subtitleEl = document.getElementById('app-display-subtitle');
+        const userEl = document.getElementById('user-display-name');
+
+        if (titleEl) titleEl.textContent = s.appName || 'EduFlow';
+        if (subtitleEl) subtitleEl.textContent = s.appSubtitle || 'Dashboard Guru Privat';
+        if (userEl) userEl.textContent = s.userName || 'Pengajar Les';
+      }
+
+      renderSettingsUI();
+
+      document.getElementById('btn-open-settings').addEventListener('click', () => {
+        const s = appState.settings || DEFAULT_DATA.settings;
+        document.getElementById('setting-app-name').value = s.appName || '';
+        document.getElementById('setting-app-subtitle').value = s.appSubtitle || '';
+        document.getElementById('setting-user-name').value = s.userName || '';
+        openModal('modal-settings');
+      });
+
+      document.getElementById('form-settings').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const appName = document.getElementById('setting-app-name').value.trim() || 'EduFlow';
+        const appSubtitle = document.getElementById('setting-app-subtitle').value.trim() || 'Dashboard Guru Privat';
+        const userName = document.getElementById('setting-user-name').value.trim() || 'Pengajar Les';
+
+        appState.settings = { appName, appSubtitle, userName };
+        saveState(appState);
+        renderSettingsUI();
+        closeModal('modal-settings');
+        showToast("Pengaturan tampilan berhasil diperbarui!", "success");
+      });
+
+      // SPA ROUTING
+      const navButtons = document.querySelectorAll('.nav-item');
+      const panelSections = document.querySelectorAll('.panel-section');
+      const headerTitle = document.getElementById('header-panel-title');
+      const headerSubtitle = document.getElementById('header-panel-subtitle');
+      
+      const panelMeta = {
+        'schedule': { title: 'Jadwal Mengajar', subtitle: 'Kelola dan pantau seluruh agenda bimbingan belajar Anda' },
+        'whiteboard': { title: 'Papan Tulis Digital & Lampiran File', subtitle: 'Coret-coret interaktif, tambah teks/sticky note, dan simpan lampiran file' },
+        'quiz-flashcard': { title: 'Kuis & Flashcard Interaktif', subtitle: 'Uji pemahaman siswa dengan soal kuis dan kartu hafalan 3D' },
+        'timer': { title: 'Pengatur Waktu Sesi Kelas', subtitle: 'Timer hitung mundur untuk mengatur durasi materi dan latihan' },
+        'randomizer': { title: 'Pengacak Nama & Kelompok', subtitle: 'Pilih nama siswa secara adil dan bagi kelompok belajar' },
+        'attendance': { title: 'Catatan & Kehadiran Siswa', subtitle: 'Rekam absensi dan perkembangan belajar siswa per sesi' },
+        'videocall': { title: 'Video Call Kelas', subtitle: 'Panggilan video & berbagi layar langsung dari browser (WebRTC)' }
+      };
+
+      function switchPanel(panelId) {
+        panelSections.forEach(sec => {
+          if (sec.id === `panel-${panelId}`) {
+            sec.classList.remove('hidden');
+          } else {
+            sec.classList.add('hidden');
+          }
+        });
+
+        navButtons.forEach(btn => {
+          if (btn.dataset.panel === panelId) {
+            btn.classList.add('active');
+          } else {
+            btn.classList.remove('active');
+          }
+        });
+
+        if (panelMeta[panelId]) {
+          headerTitle.textContent = panelMeta[panelId].title;
+          headerSubtitle.textContent = panelMeta[panelId].subtitle;
+        }
+
+        if (panelId === 'whiteboard') {
+          setTimeout(resizeWhiteboardCanvas, 50);
+        }
+
+        closeMobileSidebar();
+      }
+
+      navButtons.forEach(btn => {
+        btn.addEventListener('click', () => switchPanel(btn.dataset.panel));
+      });
+
+      // Mobile Drawer Handler
+      const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+      const closeSidebarBtn = document.getElementById('close-sidebar-btn');
+      const sidebar = document.getElementById('sidebar');
+      const sidebarOverlay = document.getElementById('sidebar-overlay');
+
+      function openMobileSidebar() {
+        sidebar.classList.remove('-translate-x-full');
+        sidebarOverlay.classList.remove('hidden');
+      }
+
+      function closeMobileSidebar() {
+        sidebar.classList.add('-translate-x-full');
+        sidebarOverlay.classList.add('hidden');
+      }
+
+      mobileMenuBtn.addEventListener('click', openMobileSidebar);
+      closeSidebarBtn.addEventListener('click', closeMobileSidebar);
+      sidebarOverlay.addEventListener('click', closeMobileSidebar);
+
+      // Realtime Clock
+      function updateRealtimeClock() {
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        const timeMobileStr = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+        const dateStr = now.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' });
+
+        const clockDesktop = document.getElementById('current-time-desktop');
+        const clockMobile = document.getElementById('current-time-mobile');
+        const dateDesktop = document.getElementById('current-date-desktop');
+
+        if (clockDesktop) clockDesktop.textContent = timeStr;
+        if (clockMobile) clockMobile.textContent = timeMobileStr;
+        if (dateDesktop) dateDesktop.textContent = dateStr;
+      }
+
+      setInterval(updateRealtimeClock, 1000);
+      updateRealtimeClock();
+
+      // Modal Helpers
+      function openModal(modalId) {
+        const m = document.getElementById(modalId);
+        if (m) m.classList.remove('hidden');
+      }
+
+      function closeModal(modalId) {
+        const m = document.getElementById(modalId);
+        if (m) m.classList.add('hidden');
+      }
+
+      document.querySelectorAll('.close-modal-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const modalParent = e.target.closest('[id^="modal-"]');
+          if (modalParent) modalParent.classList.add('hidden');
+        });
+      });
+
+      // Export / Import JSON Data
+      document.getElementById('btn-export-data').addEventListener('click', () => {
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appState, null, 2));
+        const dlAnchor = document.createElement('a');
+        dlAnchor.setAttribute("href", dataStr);
+        dlAnchor.setAttribute("download", `eduflow_backup_${new Date().toISOString().slice(0,10)}.json`);
+        document.body.appendChild(dlAnchor);
+        dlAnchor.click();
+        dlAnchor.remove();
+        showToast("Data berhasil diekspor ke file JSON!", "success");
+      });
+
+      const btnImportTrigger = document.getElementById('btn-import-trigger');
+      const inputImportFile = document.getElementById('input-import-file');
+
+      btnImportTrigger.addEventListener('click', () => inputImportFile.click());
+      inputImportFile.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          try {
+            const parsed = JSON.parse(event.target.result);
+            if (parsed.schedules && parsed.quizzes && parsed.flashcards && parsed.attendance) {
+              appState = parsed;
+              saveState(appState);
+              renderAllModules();
+              renderSettingsUI();
+              showToast("Data berhasil diimpor!", "success");
+            } else {
+              showToast("Format file JSON tidak valid", "error");
+            }
+          } catch (err) {
+            showToast("Gagal membaca file JSON", "error");
+          }
+        };
+        reader.readAsText(file);
+        e.target.value = '';
+      });
+
+      document.getElementById('btn-reset-demo').addEventListener('click', () => {
+        if (confirm("Apakah Anda yakin ingin mereset seluruh data kembali ke contoh awal?")) {
+          appState = JSON.parse(JSON.stringify(DEFAULT_DATA));
+          saveState(appState);
+          renderAllModules();
+          renderSettingsUI();
+          showToast("Data berhasil direset ke sampel awal!", "info");
+        }
+      });
+
+      // ==========================================
+      // PANEL 1: SCHEDULE CONTROLLER
+      // ==========================================
+      const scheduleGrid = document.getElementById('schedule-cards-grid');
+      const scheduleEmptyState = document.getElementById('schedule-empty-state');
+      const searchScheduleInput = document.getElementById('search-schedule');
+      const badgeScheduleCount = document.getElementById('badge-schedule-count');
+
+      function renderSchedules() {
+        const query = searchScheduleInput.value.toLowerCase().trim();
+        let list = [...appState.schedules].sort((a, b) => new Date(a.datetime) - new Date(b.datetime));
+
+        if (query) {
+          list = list.filter(item => 
+            item.student.toLowerCase().includes(query) || 
+            item.subject.toLowerCase().includes(query) ||
+            (item.link && item.link.toLowerCase().includes(query))
+          );
+        }
+
+        badgeScheduleCount.textContent = list.length;
+        scheduleGrid.innerHTML = '';
+
+        if (list.length === 0) {
+          scheduleEmptyState.classList.remove('hidden');
+          return;
+        } else {
+          scheduleEmptyState.classList.add('hidden');
+        }
+
+        const nowStr = new Date().toISOString().slice(0, 16);
+
+        list.forEach(item => {
+          const itemDate = new Date(item.datetime);
+          const formattedDate = itemDate.toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+          const formattedTime = itemDate.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+
+          let badgeClass = "bg-indigo-500/20 text-indigo-300 border-indigo-500/30";
+          let badgeText = "Mendatang";
+          
+          const isToday = new Date().toDateString() === itemDate.toDateString();
+          if (isToday) {
+            badgeClass = "bg-amber-500/20 text-amber-300 border-amber-500/30";
+            badgeText = "Hari Ini";
+          } else if (item.datetime < nowStr) {
+            badgeClass = "bg-slate-700 text-slate-400 border-slate-600";
+            badgeText = "Selesai";
+          }
+
+          const card = document.createElement('div');
+          card.className = "glass-card p-5 rounded-2xl border border-slate-800 space-y-4 hover:border-slate-700 transition flex flex-col justify-between";
+          card.innerHTML = `
+            <div class="space-y-3">
+              <div class="flex items-center justify-between">
+                <span class="text-[11px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full border ${badgeClass}">
+                  ${badgeText}
+                </span>
+                <div class="flex items-center gap-1">
+                  <button data-id="${item.id}" class="btn-edit-sched p-1.5 text-slate-400 hover:text-indigo-400 transition" title="Edit Jadwal">
+                    <i class="fa-solid fa-pen-to-square text-xs"></i>
+                  </button>
+                  <button data-id="${item.id}" class="btn-delete-sched p-1.5 text-slate-400 hover:text-rose-400 transition" title="Hapus Jadwal">
+                    <i class="fa-solid fa-trash-can text-xs"></i>
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <h4 class="font-bold text-white text-base leading-snug">${escapeHTML(item.student)}</h4>
+                <p class="text-xs text-indigo-300 font-medium mt-0.5"><i class="fa-solid fa-book-open mr-1"></i> ${escapeHTML(item.subject)}</p>
+              </div>
+
+              <div class="flex items-center gap-2 text-xs text-slate-300 bg-slate-900/60 p-2.5 rounded-xl border border-slate-800">
+                <i class="fa-regular fa-clock text-indigo-400 text-sm"></i>
+                <div>
+                  <span class="font-semibold text-white">${formattedDate}</span>
+                  <span class="text-slate-400 ml-1">• ${formattedTime} WIB</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="pt-2 border-t border-slate-800/80 flex items-center justify-between text-xs">
+              <div class="truncate max-w-[180px] text-slate-400 text-[11px]" title="${escapeHTML(item.link || '-')}">
+                <i class="fa-solid fa-location-dot mr-1 text-slate-500"></i> ${escapeHTML(item.link || 'Offline / Tanpa Link')}
+              </div>
+              ${item.link && item.link.startsWith('http') ? `
+                <button data-link="${escapeHTML(item.link)}" class="btn-copy-link px-3 py-1.5 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 rounded-lg text-xs font-medium flex items-center gap-1.5 transition">
+                  <i class="fa-solid fa-copy"></i> Salin Link
+                </button>
+              ` : ''}
+            </div>
+          `;
+          scheduleGrid.appendChild(card);
+        });
+
+        document.querySelectorAll('.btn-delete-sched').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            const id = e.currentTarget.dataset.id;
+            if (confirm("Apakah Anda yakin ingin menghapus jadwal ini?")) {
+              appState.schedules = appState.schedules.filter(s => s.id !== id);
+              saveState(appState);
+              renderSchedules();
+              showToast("Jadwal berhasil dihapus", "info");
+            }
+          });
+        });
+
+        document.querySelectorAll('.btn-edit-sched').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            const id = e.currentTarget.dataset.id;
+            const target = appState.schedules.find(s => s.id === id);
+            if (target) {
+              document.getElementById('sched-id').value = target.id;
+              document.getElementById('sched-datetime').value = target.datetime;
+              document.getElementById('sched-student').value = target.student;
+              document.getElementById('sched-subject').value = target.subject;
+              document.getElementById('sched-link').value = target.link || '';
+              document.getElementById('modal-schedule-title').textContent = 'Edit Jadwal Mengajar';
+              openModal('modal-schedule');
+            }
+          });
+        });
+
+        document.querySelectorAll('.btn-copy-link').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            const link = e.currentTarget.dataset.link;
+            navigator.clipboard.writeText(link).then(() => {
+              showToast("Link pertemuan berhasil disalin ke clipboard!", "success");
+            }).catch(() => {
+              showToast("Gagal menyalin link", "error");
+            });
+          });
+        });
+      }
+
+      searchScheduleInput.addEventListener('input', renderSchedules);
+
+      document.getElementById('btn-open-schedule-modal').addEventListener('click', () => {
+        document.getElementById('form-schedule').reset();
+        document.getElementById('sched-id').value = '';
+        document.getElementById('sched-datetime').value = new Date().toISOString().slice(0, 16);
+        document.getElementById('modal-schedule-title').textContent = 'Tambah Jadwal Baru';
+        openModal('modal-schedule');
+      });
+
+      document.getElementById('form-schedule').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const id = document.getElementById('sched-id').value;
+        const datetime = document.getElementById('sched-datetime').value;
+        const student = document.getElementById('sched-student').value.trim();
+        const subject = document.getElementById('sched-subject').value.trim();
+        const link = document.getElementById('sched-link').value.trim();
+
+        if (id) {
+          const idx = appState.schedules.findIndex(s => s.id === id);
+          if (idx !== -1) {
+            appState.schedules[idx] = { id, datetime, student, subject, link };
+          }
+        } else {
+          const newSched = { id: 'sch-' + Date.now(), datetime, student, subject, link };
+          appState.schedules.push(newSched);
+        }
+
+        saveState(appState);
+        renderSchedules();
+        closeModal('modal-schedule');
+        showToast("Jadwal berhasil disimpan!", "success");
+      });
+
+      // ==========================================
+      // PANEL 2: INTERACTIVE WHITEBOARD & PERMANENT FILE ATTACHMENTS (PERSISTENCE & PREVIEW REVISI)
+      // ==========================================
+      const canvas = document.getElementById('whiteboard-canvas');
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      
+      let isDrawing = false;
+      let currentTool = 'pen'; // 'pen' | 'text' | 'sticky' | 'eraser'
+      let currentColor = '#000000';
+      let currentLineWidth = 4;
+      
+      const undoStack = [];
+      const MAX_UNDO = 15;
+
+      function resizeWhiteboardCanvas() {
+        const parent = canvas.parentElement;
+        if (!parent) return;
+
+        const rect = parent.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+
+        let tempImage = null;
+        if (canvas.width > 0 && canvas.height > 0) {
+          tempImage = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        }
+
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+
+        ctx.scale(dpr, dpr);
+        
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, rect.width, rect.height);
+
+        if (tempImage) {
+          try {
+            ctx.putImageData(tempImage, 0, 0);
+          } catch (e) {}
+        }
+
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        
+        if (undoStack.length === 0) {
+          saveCanvasState();
+        }
+      }
+
+      function saveCanvasState() {
+        if (undoStack.length >= MAX_UNDO) {
+          undoStack.shift();
+        }
+        undoStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+      }
+
+      function getCanvasCoordinates(e) {
+        const rect = canvas.getBoundingClientRect();
+        let clientX, clientY;
+
+        if (e.touches && e.touches.length > 0) {
+          clientX = e.touches[0].clientX;
+          clientY = e.touches[0].clientY;
+        } else {
+          clientX = e.clientX;
+          clientY = e.clientY;
+        }
+
+        return {
+          x: clientX - rect.left,
+          y: clientY - rect.top
+        };
+      }
+
+      function startDrawing(e) {
+        const { x, y } = getCanvasCoordinates(e);
+
+        if (currentTool === 'text') {
+          e.preventDefault();
+          const text = prompt("Masukkan Teks untuk Ditulis di Papan Tulis:");
+          if (text) {
+            saveCanvasState();
+            ctx.font = `${currentLineWidth * 4 + 12}px 'Plus Jakarta Sans', sans-serif`;
+            ctx.fillStyle = currentColor;
+            ctx.fillText(text, x, y);
+            showToast("Teks berhasil ditambahkan ke canvas", "success");
+          }
+          return;
+        }
+
+        if (currentTool === 'sticky') {
+          e.preventDefault();
+          const noteText = prompt("Masukkan Catatan Sticky Note:");
+          if (noteText) {
+            saveCanvasState();
+            const w = 180;
+            const h = 120;
+            ctx.fillStyle = '#fef08a';
+            ctx.shadowColor = 'rgba(0,0,0,0.15)';
+            ctx.shadowBlur = 8;
+            ctx.fillRect(x, y, w, h);
+            ctx.shadowBlur = 0;
+
+            ctx.strokeStyle = '#eab308';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x, y, w, h);
+
+            ctx.fillStyle = '#1e293b';
+            ctx.font = "bold 13px 'Plus Jakarta Sans', sans-serif";
+            
+            const words = noteText.split(' ');
+            let line = '';
+            let lineY = y + 24;
+            for (let n = 0; n < words.length; n++) {
+              let testLine = line + words[n] + ' ';
+              let metrics = ctx.measureText(testLine);
+              if (metrics.width > w - 16 && n > 0) {
+                ctx.fillText(line, x + 10, lineY);
+                line = words[n] + ' ';
+                lineY += 18;
+              } else {
+                line = testLine;
+              }
+            }
+            ctx.fillText(line, x + 10, lineY);
+            showToast("Sticky note berhasil ditambahkan", "success");
+          }
+          return;
+        }
+
+        e.preventDefault();
+        isDrawing = true;
+        saveCanvasState();
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+      }
+
+      function draw(e) {
+        if (!isDrawing || (currentTool !== 'pen' && currentTool !== 'eraser')) return;
+        e.preventDefault();
+
+        const { x, y } = getCanvasCoordinates(e);
+
+        if (currentTool === 'eraser') {
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = currentLineWidth * 3;
+        } else {
+          ctx.strokeStyle = currentColor;
+          ctx.lineWidth = currentLineWidth;
+        }
+
+        ctx.lineTo(x, y);
+        ctx.stroke();
+      }
+
+      function stopDrawing(e) {
+        if (isDrawing) {
+          ctx.closePath();
+          isDrawing = false;
+        }
+      }
+
+      canvas.addEventListener('mousedown', startDrawing);
+      canvas.addEventListener('mousemove', draw);
+      canvas.addEventListener('mouseup', stopDrawing);
+      canvas.addEventListener('mouseleave', stopDrawing);
+
+      canvas.addEventListener('touchstart', startDrawing, { passive: false });
+      canvas.addEventListener('touchmove', draw, { passive: false });
+      canvas.addEventListener('touchend', stopDrawing);
+
+      const toolPenBtn = document.getElementById('wb-tool-pen');
+      const toolTextBtn = document.getElementById('wb-tool-text');
+      const toolStickyBtn = document.getElementById('wb-tool-sticky');
+      const toolEraserBtn = document.getElementById('wb-tool-eraser');
+
+      const allTools = [toolPenBtn, toolTextBtn, toolStickyBtn, toolEraserBtn];
+
+      function setActiveTool(selectedBtn, toolName) {
+        currentTool = toolName;
+        allTools.forEach(btn => {
+          if (btn) btn.className = "px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white flex items-center gap-1.5 transition";
+        });
+        if (selectedBtn) selectedBtn.className = "px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white flex items-center gap-1.5 transition";
+      }
+
+      toolPenBtn.addEventListener('click', () => setActiveTool(toolPenBtn, 'pen'));
+      if (toolTextBtn) toolTextBtn.addEventListener('click', () => setActiveTool(toolTextBtn, 'text'));
+      if (toolStickyBtn) toolStickyBtn.addEventListener('click', () => setActiveTool(toolStickyBtn, 'sticky'));
+      toolEraserBtn.addEventListener('click', () => setActiveTool(toolEraserBtn, 'eraser'));
+
+      document.querySelectorAll('.wb-color-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          document.querySelectorAll('.wb-color-btn').forEach(b => b.classList.remove('active', 'border-2', 'border-white'));
+          e.currentTarget.classList.add('active', 'border-2', 'border-white');
+          currentColor = e.currentTarget.dataset.color;
+          document.getElementById('wb-color-picker').value = currentColor;
+          if (currentTool === 'eraser') toolPenBtn.click();
+        });
+      });
+
+      document.getElementById('wb-color-picker').addEventListener('input', (e) => {
+        currentColor = e.target.value;
+        if (currentTool === 'eraser') toolPenBtn.click();
+      });
+
+      const lineWidthSlider = document.getElementById('wb-line-width');
+      const lineWidthVal = document.getElementById('wb-line-width-val');
+
+      lineWidthSlider.addEventListener('input', (e) => {
+        currentLineWidth = parseInt(e.target.value, 10);
+        lineWidthVal.textContent = `${currentLineWidth}px`;
+      });
+
+      document.getElementById('wb-btn-undo').addEventListener('click', () => {
+        if (undoStack.length > 0) {
+          const lastState = undoStack.pop();
+          ctx.putImageData(lastState, 0, 0);
+          showToast("Coretan terakhir dibatalkan (Undo)", "info");
+        } else {
+          showToast("Tidak ada riwayat coretan untuk dibatalkan", "warning");
+        }
+      });
+
+      document.getElementById('wb-btn-clear').addEventListener('click', () => {
+        if (confirm("Hapus seluruh gambar pada papan tulis?")) {
+          saveCanvasState();
+          const parent = canvas.parentElement;
+          const rect = parent.getBoundingClientRect();
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, rect.width, rect.height);
+          showToast("Papan tulis telah dibersihkan", "info");
+        }
+      });
+
+      document.getElementById('wb-btn-download').addEventListener('click', () => {
+        const dataURL = canvas.toDataURL('image/png');
+        const link = document.createElement('a');
+        link.download = `papan_tulis_eduflow_${Date.now()}.png`;
+        link.href = dataURL;
+        link.click();
+        showToast("Gambar papan tulis berhasil diunduh!", "success");
+      });
+
+      // FILE UPLOAD & PERMANENT STORAGE LOCALSTORAGE LOGIC WITH VISUAL PREVIEW
+      const fileUploadInput = document.getElementById('wb-file-upload');
+      const fileCategoriesContainer = document.getElementById('file-categories-container');
+      const listFileGambar = document.getElementById('list-file-gambar');
+      const listFileDokumen = document.getElementById('list-file-dokumen');
+      const listFileLainnya = document.getElementById('list-file-lainnya');
+
+      if (fileUploadInput) {
+        fileUploadInput.addEventListener('change', (e) => {
+          const files = Array.from(e.target.files);
+          if (files.length === 0) return;
+
+          let loadedCount = 0;
+          files.forEach(file => {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+              const fileObj = {
+                id: 'file-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
+                name: file.name,
+                type: file.type || 'application/octet-stream',
+                size: (file.size / 1024).toFixed(1) + ' KB',
+                dataUrl: event.target.result
+              };
+
+              appState.whiteboardFiles.push(fileObj);
+              loadedCount++;
+
+              if (loadedCount === files.length) {
+                saveState(appState);
+                renderUploadedFiles();
+                showToast(`${files.length} lampiran berhasil disimpan permanen ke LocalStorage!`, "success");
+              }
+            };
+            reader.readAsDataURL(file);
+          });
+
+          e.target.value = '';
+        });
+      }
+
+      // ---- Helper: konversi Base64 DataURL -> Blob URL (agar PDF/Office render sempurna, bukan sekadar link) ----
+      let currentPreviewObjectUrl = null;
+
+      function dataUrlToBlobUrl(dataUrl) {
+        const [meta, base64] = dataUrl.split(',');
+        const mime = (meta.match(/data:(.*?);base64/) || [])[1] || 'application/octet-stream';
+        const binary = atob(base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        if (currentPreviewObjectUrl) URL.revokeObjectURL(currentPreviewObjectUrl);
+        currentPreviewObjectUrl = URL.createObjectURL(new Blob([bytes], { type: mime }));
+        return currentPreviewObjectUrl;
+      }
+
+      function loadExternalScript(src, globalCheck) {
+        return new Promise((resolve, reject) => {
+          if (window[globalCheck]) return resolve();
+          const script = document.createElement('script');
+          script.src = src;
+          script.onload = resolve;
+          script.onerror = () => reject(new Error('Gagal memuat pustaka ' + src));
+          document.head.appendChild(script);
+        });
+      }
+
+      const PAPER_CLASS = "bg-white text-slate-900 rounded-lg shadow-2xl p-6 sm:p-10 w-full max-w-[794px] mx-auto overflow-auto";
+
+      // Preview in-app "gaya print preview" untuk semua jenis lampiran, tanpa perlu download
+      function openFilePreview(fileId) {
+        const file = appState.whiteboardFiles.find(f => f.id === fileId);
+        if (!file) return;
+
+        const body = document.getElementById('preview-file-body');
+        const nameEl = document.getElementById('preview-file-name');
+        const downloadLink = document.getElementById('preview-file-download');
+
+        nameEl.textContent = file.name;
+        downloadLink.href = file.dataUrl;
+        downloadLink.setAttribute('download', file.name);
+        body.innerHTML = `<div class="text-slate-400 text-xs flex items-center gap-2"><i class="fa-solid fa-spinner fa-spin"></i> Memuat pratinjau...</div>`;
+
+        const type = file.type || '';
+        const isWordDoc = /msword|wordprocessingml/.test(type);
+        const isExcelDoc = /ms-excel|spreadsheetml/.test(type);
+        const isPptDoc = /ms-powerpoint|presentationml/.test(type);
+
+        if (type.startsWith('image/')) {
+          body.innerHTML = `<img src="${file.dataUrl}" alt="${escapeHTML(file.name)}" class="max-w-full max-h-[78vh] object-contain rounded-lg shadow-lg">`;
+
+        } else if (type === 'application/pdf') {
+          const blobUrl = dataUrlToBlobUrl(file.dataUrl);
+          body.innerHTML = `<embed src="${blobUrl}" type="application/pdf" class="w-full h-[78vh] rounded-lg shadow-2xl bg-white">`;
+
+        } else if (type.startsWith('audio/')) {
+          body.innerHTML = `<audio controls autoplay src="${file.dataUrl}" class="w-full"></audio>`;
+
+        } else if (type.startsWith('video/')) {
+          body.innerHTML = `<video controls autoplay src="${file.dataUrl}" class="max-w-full max-h-[78vh] rounded-lg bg-black"></video>`;
+
+        } else if (type.startsWith('text/') || type === 'application/json') {
+          fetch(file.dataUrl).then(res => res.text()).then(text => {
+            body.innerHTML = `<pre class="${PAPER_CLASS} whitespace-pre-wrap text-xs font-mono">${escapeHTML(text)}</pre>`;
+          }).catch(() => {
+            body.innerHTML = `<p class="text-rose-400 text-xs">Gagal memuat isi teks file.</p>`;
+          });
+
+        } else if (isWordDoc) {
+          loadExternalScript('https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js', 'mammoth')
+            .then(() => fetch(file.dataUrl).then(r => r.arrayBuffer()))
+            .then(buffer => window.mammoth.convertToHtml({ arrayBuffer: buffer }))
+            .then(result => {
+              body.innerHTML = `<div class="${PAPER_CLASS} prose prose-sm max-w-none">${result.value}</div>`;
+            })
+            .catch(() => {
+              body.innerHTML = `<div class="text-center text-slate-400 text-xs space-y-2 p-6">
+                <i class="fa-solid fa-file-word text-3xl text-indigo-400"></i>
+                <p>Gagal merender pratinjau dokumen Word ini. Gunakan tombol "Unduh" di atas.</p>
+              </div>`;
+            });
+
+        } else if (isExcelDoc) {
+          loadExternalScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js', 'XLSX')
+            .then(() => fetch(file.dataUrl).then(r => r.arrayBuffer()))
+            .then(buffer => {
+              const wb = window.XLSX.read(buffer, { type: 'array' });
+              const firstSheet = wb.Sheets[wb.SheetNames[0]];
+              const html = window.XLSX.utils.sheet_to_html(firstSheet);
+              body.innerHTML = `<div class="${PAPER_CLASS} text-xs [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-slate-300 [&_td]:px-2 [&_td]:py-1">${html}</div>`;
+            })
+            .catch(() => {
+              body.innerHTML = `<div class="text-center text-slate-400 text-xs space-y-2 p-6">
+                <i class="fa-solid fa-file-excel text-3xl text-emerald-400"></i>
+                <p>Gagal merender pratinjau spreadsheet ini. Gunakan tombol "Unduh" di atas.</p>
+              </div>`;
+            });
+
+        } else if (isPptDoc) {
+          body.innerHTML = `
+            <div class="text-center text-slate-400 text-xs space-y-2 p-6">
+              <i class="fa-solid fa-file-powerpoint text-3xl text-orange-400"></i>
+              <p>Pratinjau PowerPoint belum didukung secara offline di browser.</p>
+              <p>Gunakan tombol "Unduh" di atas untuk membuka file ini.</p>
+            </div>`;
+
+        } else {
+          body.innerHTML = `
+            <div class="text-center text-slate-400 text-xs space-y-2 p-6">
+              <i class="fa-solid fa-file text-3xl text-slate-500"></i>
+              <p>Format file ini tidak memiliki pratinjau khusus.</p>
+            </div>`;
+        }
+
+        openModal('modal-file-preview');
+      }
+
+      function renderUploadedFiles() {
+        const files = appState.whiteboardFiles || [];
+        
+        if (files.length === 0) {
+          fileCategoriesContainer.classList.add('hidden');
+          return;
+        }
+
+        fileCategoriesContainer.classList.remove('hidden');
+
+        listFileGambar.innerHTML = '';
+        listFileDokumen.innerHTML = '';
+        listFileLainnya.innerHTML = '';
+
+        let countGambar = 0;
+        let countDokumen = 0;
+        let countLainnya = 0;
+
+        files.forEach(file => {
+          if (file.type.startsWith('image/')) {
+            countGambar++;
+            const card = document.createElement('div');
+            card.className = "p-2 bg-slate-900/80 rounded-xl border border-slate-700/80 space-y-2 group";
+            card.innerHTML = `
+              <div data-id="${file.id}" class="btn-preview-file relative overflow-hidden rounded-lg bg-slate-950 h-28 flex items-center justify-center border border-slate-800 cursor-zoom-in" title="Klik untuk pratinjau">
+                <img src="${file.dataUrl}" alt="${escapeHTML(file.name)}" class="max-h-full max-w-full object-contain pointer-events-none">
+              </div>
+              <div class="flex items-center justify-between gap-1 text-[11px]">
+                <span class="truncate font-medium text-slate-200" title="${escapeHTML(file.name)}">${escapeHTML(file.name)}</span>
+                <span class="text-[10px] text-slate-500">${file.size}</span>
+              </div>
+              <div class="flex items-center gap-1.5 pt-1">
+                <button data-id="${file.id}" class="btn-stamp-img flex-1 px-2 py-1 bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 rounded text-[11px] font-semibold flex items-center justify-center gap-1 transition">
+                  <i class="fa-solid fa-stamp"></i> Tempel Canvas
+                </button>
+                <button data-id="${file.id}" class="btn-delete-file px-2 py-1 bg-rose-500/20 hover:bg-rose-500/40 text-rose-300 rounded text-[11px] font-semibold transition" title="Hapus Lampiran">
+                  <i class="fa-solid fa-trash-can"></i>
+                </button>
+              </div>
+            `;
+            listFileGambar.appendChild(card);
+          } else if (file.type.includes('pdf') || file.type.includes('document') || file.type.includes('text') || file.type.includes('msword')) {
+            countDokumen++;
+            const card = document.createElement('div');
+            card.className = "p-2.5 bg-slate-900/80 rounded-xl border border-slate-700/80 space-y-1.5";
+            card.innerHTML = `
+              <div class="flex items-center gap-2">
+                <div class="w-8 h-8 rounded-lg bg-rose-500/20 text-rose-400 flex items-center justify-center text-sm font-bold shrink-0">
+                  <i class="fa-solid fa-file-pdf"></i>
+                </div>
+                <div class="truncate flex-1">
+                  <p class="truncate text-xs font-semibold text-slate-200" title="${escapeHTML(file.name)}">${escapeHTML(file.name)}</p>
+                  <span class="text-[10px] text-slate-400">${file.size}</span>
+                </div>
+              </div>
+              <div class="flex items-center justify-between gap-2 pt-1 border-t border-slate-800 text-[11px]">
+                <button data-id="${file.id}" class="btn-preview-file text-indigo-400 hover:text-indigo-300 font-semibold flex items-center gap-1">
+                  <i class="fa-solid fa-eye text-[10px]"></i> Lihat Pratinjau
+                </button>
+                <button data-id="${file.id}" class="btn-delete-file text-rose-400 hover:text-rose-300 p-0.5" title="Hapus Dokumen">
+                  <i class="fa-solid fa-trash-can"></i>
+                </button>
+              </div>
+            `;
+            listFileDokumen.appendChild(card);
+          } else {
+            countLainnya++;
+            const isMedia = file.type.startsWith('audio/') || file.type.startsWith('video/');
+            const card = document.createElement('div');
+            card.className = "p-2.5 bg-slate-900/80 rounded-xl border border-slate-700/80 space-y-1.5";
+            
+            let previewHTML = '';
+            if (file.type.startsWith('audio/')) {
+              previewHTML = `<audio controls src="${file.dataUrl}" class="w-full h-7 mt-1"></audio>`;
+            } else if (file.type.startsWith('video/')) {
+              previewHTML = `<video controls src="${file.dataUrl}" class="w-full max-h-24 rounded bg-black mt-1"></video>`;
+            }
+
+            card.innerHTML = `
+              <div class="flex items-center gap-2">
+                <div class="w-8 h-8 rounded-lg bg-purple-500/20 text-purple-400 flex items-center justify-center text-sm font-bold shrink-0">
+                  <i class="fa-solid fa-film"></i>
+                </div>
+                <div class="truncate flex-1">
+                  <p class="truncate text-xs font-semibold text-slate-200" title="${escapeHTML(file.name)}">${escapeHTML(file.name)}</p>
+                  <span class="text-[10px] text-slate-400">${file.size}</span>
+                </div>
+              </div>
+              ${previewHTML}
+              <div class="flex items-center justify-between gap-2 pt-1 border-t border-slate-800 text-[11px]">
+                <button data-id="${file.id}" class="btn-preview-file text-purple-400 hover:text-purple-300 font-semibold flex items-center gap-1">
+                  <i class="fa-solid fa-eye text-[10px]"></i> Lihat Pratinjau
+                </button>
+                <button data-id="${file.id}" class="btn-delete-file text-rose-400 hover:text-rose-300 p-0.5" title="Hapus Lampiran">
+                  <i class="fa-solid fa-trash-can"></i>
+                </button>
+              </div>
+            `;
+            listFileLainnya.appendChild(card);
+          }
+        });
+
+        document.getElementById('badge-count-gambar').textContent = countGambar;
+        document.getElementById('badge-count-dokumen').textContent = countDokumen;
+        document.getElementById('badge-count-lainnya').textContent = countLainnya;
+
+        // Action Buttons Handler
+        document.querySelectorAll('.btn-stamp-img').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            const id = e.currentTarget.dataset.id;
+            const targetFile = appState.whiteboardFiles.find(f => f.id === id);
+            if (targetFile) {
+              const img = new Image();
+              img.onload = () => {
+                saveCanvasState();
+                const aspect = img.height / img.width;
+                const targetW = Math.min(300, img.width);
+                const targetH = targetW * aspect;
+                ctx.drawImage(img, 40, 40, targetW, targetH);
+                showToast("Gambar berhasil ditempelkan di papan tulis!", "success");
+              };
+              img.src = targetFile.dataUrl;
+            }
+          });
+        });
+
+        document.querySelectorAll('.btn-preview-file').forEach(el => {
+          el.addEventListener('click', (e) => {
+            openFilePreview(e.currentTarget.dataset.id);
+          });
+        });
+
+        document.querySelectorAll('.btn-delete-file').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            const id = e.currentTarget.dataset.id;
+            if (confirm("Hapus lampiran file ini dari penyimpanan lokal?")) {
+              appState.whiteboardFiles = appState.whiteboardFiles.filter(f => f.id !== id);
+              saveState(appState);
+              renderUploadedFiles();
+              showToast("Lampiran file dihapus dari LocalStorage", "info");
+            }
+          });
+        });
+      }
+
+      renderUploadedFiles();
+      window.addEventListener('resize', resizeWhiteboardCanvas);
+
+      // ==========================================
+      // PANEL 3: KUIS & FLASHCARD CONTROLLER (MODUL KUIS TANPA MENAMPILKAN JAWABAN BENAR)
+      // ==========================================
+      const tabQuiz = document.getElementById('tab-quiz');
+      const tabFlashcard = document.getElementById('tab-flashcard');
+      const subcontentQuiz = document.getElementById('subcontent-quiz');
+      const subcontentFlashcard = document.getElementById('subcontent-flashcard');
+
+      tabQuiz.addEventListener('click', () => {
+        tabQuiz.className = "pb-3 text-sm font-bold border-b-2 border-indigo-500 text-indigo-400 flex items-center gap-2";
+        tabFlashcard.className = "pb-3 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2";
+        subcontentQuiz.classList.remove('hidden');
+        subcontentFlashcard.classList.add('hidden');
+      });
+
+      tabFlashcard.addEventListener('click', () => {
+        tabFlashcard.className = "pb-3 text-sm font-bold border-b-2 border-indigo-500 text-indigo-400 flex items-center gap-2";
+        tabQuiz.className = "pb-3 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2";
+        subcontentFlashcard.classList.remove('hidden');
+        subcontentQuiz.classList.add('hidden');
+        renderFlashcardViewer();
+      });
+
+      const quizListContainer = document.getElementById('quiz-list-container');
+
+      /**
+       * Render Bank Soal Kuis (REVISI: Opsi Jawaban Ditampilkan Netral Tanpa Menunjukkan Mana Jawaban yang Benar)
+       */
+      function renderQuizzes() {
+        quizListContainer.innerHTML = '';
+        
+        if (appState.quizzes.length === 0) {
+          quizListContainer.innerHTML = `
+            <div class="text-center py-8 text-slate-400 text-xs bg-slate-800/40 rounded-xl border border-slate-700">
+              Belum ada soal kuis. Klik "Tambah Soal Baru" di atas.
+            </div>
+          `;
+          return;
+        }
+
+        appState.quizzes.forEach((item, index) => {
+          const el = document.createElement('div');
+          el.className = "glass-card p-4 rounded-xl border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3";
+          el.innerHTML = `
+            <div class="space-y-1.5 flex-1">
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-bold text-indigo-400 bg-indigo-500/10 px-2.5 py-0.5 rounded-full border border-indigo-500/20">Soal #${index + 1}</span>
+              </div>
+              <p class="text-sm font-semibold text-white leading-relaxed">${escapeHTML(item.question)}</p>
+              <div class="flex flex-wrap gap-2 pt-1 text-xs">
+                ${item.options.map((opt, oIdx) => `
+                  <span class="px-2.5 py-1 rounded-lg border bg-slate-800/90 text-slate-300 border-slate-700 font-medium">
+                    ${String.fromCharCode(65 + oIdx)}. ${escapeHTML(opt)}
+                  </span>
+                `).join('')}
+              </div>
+            </div>
+
+            <div class="flex items-center gap-2 shrink-0 border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-800">
+              <button data-id="${item.id}" class="btn-edit-quiz px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium border border-slate-700 transition">
+                <i class="fa-solid fa-pen-to-square mr-1"></i> Edit
+              </button>
+              <button data-id="${item.id}" class="btn-delete-quiz px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 rounded-lg text-xs font-medium border border-rose-500/30 transition">
+                <i class="fa-solid fa-trash-can"></i>
+              </button>
+            </div>
+          `;
+          quizListContainer.appendChild(el);
+        });
+
+        document.querySelectorAll('.btn-delete-quiz').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            const id = e.currentTarget.dataset.id;
+            if (confirm("Hapus soal kuis ini?")) {
+              appState.quizzes = appState.quizzes.filter(q => q.id !== id);
+              saveState(appState);
+              renderQuizzes();
+              showToast("Soal kuis dihapus", "info");
+            }
+          });
+        });
+
+        document.querySelectorAll('.btn-edit-quiz').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            const id = e.currentTarget.dataset.id;
+            const q = appState.quizzes.find(item => item.id === id);
+            if (q) {
+              document.getElementById('quiz-id').value = q.id;
+              document.getElementById('quiz-question').value = q.question;
+              document.getElementById('quiz-opt-a').value = q.options[0] || '';
+              document.getElementById('quiz-opt-b').value = q.options[1] || '';
+              document.getElementById('quiz-opt-c').value = q.options[2] || '';
+              document.getElementById('quiz-opt-d').value = q.options[3] || '';
+              document.getElementById('quiz-correct-index').value = q.correctIndex;
+              document.getElementById('modal-quiz-title').textContent = 'Edit Soal Kuis';
+              openModal('modal-quiz');
+            }
+          });
+        });
+      }
+
+      document.getElementById('btn-open-quiz-modal').addEventListener('click', () => {
+        document.getElementById('form-quiz').reset();
+        document.getElementById('quiz-id').value = '';
+        document.getElementById('modal-quiz-title').textContent = 'Tambah Soal Kuis Baru';
+        openModal('modal-quiz');
+      });
+
+      document.getElementById('form-quiz').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const id = document.getElementById('quiz-id').value;
+        const question = document.getElementById('quiz-question').value.trim();
+        const optA = document.getElementById('quiz-opt-a').value.trim();
+        const optB = document.getElementById('quiz-opt-b').value.trim();
+        const optC = document.getElementById('quiz-opt-c').value.trim();
+        const optD = document.getElementById('quiz-opt-d').value.trim();
+        const correctIndex = parseInt(document.getElementById('quiz-correct-index').value, 10);
+
+        const options = [optA, optB, optC, optD];
+
+        if (id) {
+          const idx = appState.quizzes.findIndex(q => q.id === id);
+          if (idx !== -1) {
+            appState.quizzes[idx] = { id, question, options, correctIndex };
+          }
+        } else {
+          const newQuiz = { id: 'qz-' + Date.now(), question, options, correctIndex };
+          appState.quizzes.push(newQuiz);
+        }
+
+        saveState(appState);
+        renderQuizzes();
+        closeModal('modal-quiz');
+        showToast("Soal kuis berhasil disimpan!", "success");
+      });
+
+      // QUIZ PLAY INTERACTIVE SESSION
+      let quizPlayIndex = 0;
+      let quizPlayScore = 0;
+      let currentPlayDeck = [];
+
+      const btnStartQuizPlay = document.getElementById('btn-start-quiz-play');
+      const modalQuizPlay = document.getElementById('modal-quiz-play');
+      const btnCloseQuizPlay = document.getElementById('btn-close-quiz-play');
+      
+      const quizPlayArena = document.getElementById('quiz-play-arena');
+      const quizPlaySummary = document.getElementById('quiz-play-summary');
+      
+      const quizPlayCounter = document.getElementById('quiz-play-counter');
+      const quizPlayScoreLive = document.getElementById('quiz-play-score-live');
+      const quizPlayProgressBar = document.getElementById('quiz-play-progress-bar');
+      const quizPlayQuestionText = document.getElementById('quiz-play-question-text');
+      const quizPlayOptionsContainer = document.getElementById('quiz-play-options-container');
+      const quizPlayFeedbackBox = document.getElementById('quiz-play-feedback-box');
+      const quizPlayFeedbackText = document.getElementById('quiz-play-feedback-text');
+      const btnQuizPlayNext = document.getElementById('btn-quiz-play-next');
+
+      btnStartQuizPlay.addEventListener('click', () => {
+        if (appState.quizzes.length === 0) {
+          showToast("Belum ada soal kuis. Silakan buat soal terlebih dahulu!", "warning");
+          return;
+        }
+        currentPlayDeck = [...appState.quizzes];
+        quizPlayIndex = 0;
+        quizPlayScore = 0;
+        quizPlayArena.classList.remove('hidden');
+        quizPlaySummary.classList.add('hidden');
+        renderCurrentQuizPlayQuestion();
+        openModal('modal-quiz-play');
+      });
+
+      btnCloseQuizPlay.addEventListener('click', () => closeModal('modal-quiz-play'));
+
+      function renderCurrentQuizPlayQuestion() {
+        quizPlayFeedbackBox.classList.add('hidden');
+        const q = currentPlayDeck[quizPlayIndex];
+        
+        quizPlayCounter.textContent = `Soal ${quizPlayIndex + 1} dari ${currentPlayDeck.length}`;
+        quizPlayScoreLive.textContent = `Skor: ${quizPlayScore}`;
+        
+        const pct = ((quizPlayIndex + 1) / currentPlayDeck.length) * 100;
+        quizPlayProgressBar.style.width = `${pct}%`;
+
+        quizPlayQuestionText.textContent = q.question;
+        quizPlayOptionsContainer.innerHTML = '';
+
+        q.options.forEach((optText, oIdx) => {
+          const btn = document.createElement('button');
+          btn.className = "w-full text-left p-3.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-xs font-medium text-white transition flex items-center gap-3";
+          btn.innerHTML = `
+            <span class="w-6 h-6 rounded-lg bg-slate-900 flex items-center justify-center font-bold text-indigo-400 shrink-0 border border-slate-700">${String.fromCharCode(65 + oIdx)}</span>
+            <span>${escapeHTML(optText)}</span>
+          `;
+
+          btn.addEventListener('click', () => handleOptionSelect(oIdx, q.correctIndex));
+          quizPlayOptionsContainer.appendChild(btn);
+        });
+      }
+
+      function handleOptionSelect(selectedIndex, correctIndex) {
+        const allButtons = quizPlayOptionsContainer.querySelectorAll('button');
+        allButtons.forEach(b => b.disabled = true);
+
+        const isCorrect = selectedIndex === correctIndex;
+
+        if (isCorrect) {
+          quizPlayScore += 20;
+          allButtons[selectedIndex].className = "w-full text-left p-3.5 bg-emerald-600/20 border-2 border-emerald-500 rounded-xl text-xs font-medium text-emerald-200 flex items-center gap-3";
+          quizPlayFeedbackBox.className = "p-3.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-xs font-semibold text-emerald-300 flex items-center justify-between";
+          quizPlayFeedbackText.innerHTML = `<i class="fa-solid fa-circle-check mr-2 text-emerald-400 text-sm"></i> Jawaban Benar! Tepat sekali.`;
+        } else {
+          allButtons[selectedIndex].className = "w-full text-left p-3.5 bg-rose-600/20 border-2 border-rose-500 rounded-xl text-xs font-medium text-rose-200 flex items-center gap-3";
+          allButtons[correctIndex].className = "w-full text-left p-3.5 bg-emerald-600/20 border-2 border-emerald-500 rounded-xl text-xs font-medium text-emerald-200 flex items-center gap-3";
+          quizPlayFeedbackBox.className = "p-3.5 rounded-xl border border-rose-500/30 bg-rose-500/10 text-xs font-semibold text-rose-300 flex items-center justify-between";
+          quizPlayFeedbackText.innerHTML = `<i class="fa-solid fa-circle-xmark mr-2 text-rose-400 text-sm"></i> Kurang Tepat. Jawaban benar adalah opsi (${String.fromCharCode(65 + correctIndex)}).`;
+        }
+
+        quizPlayScoreLive.textContent = `Skor: ${quizPlayScore}`;
+        quizPlayFeedbackBox.classList.remove('hidden');
+      }
+
+      btnQuizPlayNext.addEventListener('click', () => {
+        quizPlayIndex++;
+        if (quizPlayIndex < currentPlayDeck.length) {
+          renderCurrentQuizPlayQuestion();
+        } else {
+          quizPlayArena.classList.add('hidden');
+          quizPlaySummary.classList.remove('hidden');
+
+          const maxScore = currentPlayDeck.length * 20;
+          const finalPct = Math.round((quizPlayScore / maxScore) * 100);
+
+          document.getElementById('quiz-final-score').textContent = `${finalPct}%`;
+          document.getElementById('quiz-final-detail').textContent = `Total Skor ${quizPlayScore} dari ${maxScore} poin (${currentPlayDeck.length} Soal)`;
+
+          if (typeof confetti === 'function' && finalPct >= 70) {
+            confetti({ particleCount: 80, spread: 60, origin: { y: 0.6 } });
+          }
+        }
+      });
+
+      document.getElementById('btn-quiz-restart').addEventListener('click', () => {
+        quizPlayIndex = 0;
+        quizPlayScore = 0;
+        quizPlayArena.classList.remove('hidden');
+        quizPlaySummary.classList.add('hidden');
+        renderCurrentQuizPlayQuestion();
+      });
+
+      // FLASHCARD LOGIC & DECK TOGGLE
+      let fcCurrentIndex = 0;
+      const fcCardElement = document.getElementById('flashcard-card-element');
+      const fcDisplayTerm = document.getElementById('fc-display-term');
+      const fcDisplayDef = document.getElementById('fc-display-def');
+      const fcCounter = document.getElementById('fc-counter');
+      const fcDeckGrid = document.getElementById('flashcard-deck-grid');
+      const btnToggleDeck = document.getElementById('btn-toggle-deck');
+      const flashcardDeckContainer = document.getElementById('flashcard-deck-container');
+
+      if (btnToggleDeck && flashcardDeckContainer) {
+        btnToggleDeck.addEventListener('click', () => {
+          const isHidden = flashcardDeckContainer.classList.contains('hidden');
+          if (isHidden) {
+            flashcardDeckContainer.classList.remove('hidden');
+            btnToggleDeck.innerHTML = `Sembunyikan Daftar Kartu <i class="fa-solid fa-chevron-up ml-1"></i>`;
+          } else {
+            flashcardDeckContainer.classList.add('hidden');
+            btnToggleDeck.innerHTML = `Tampilkan Daftar Kartu <i class="fa-solid fa-chevron-down ml-1"></i>`;
+          }
+        });
+      }
+
+      function renderFlashcardViewer() {
+        if (appState.flashcards.length === 0) {
+          fcDisplayTerm.textContent = "Belum Ada Flashcard";
+          fcDisplayDef.textContent = "Klik 'Tambah Flashcard' di kanan atas untuk membuat kartu baru.";
+          fcCounter.textContent = "Kartu 0 / 0";
+          renderFlashcardDeckList();
+          return;
+        }
+
+        if (fcCurrentIndex >= appState.flashcards.length) {
+          fcCurrentIndex = 0;
+        }
+
+        const currentCard = appState.flashcards[fcCurrentIndex];
+        fcDisplayTerm.textContent = currentCard.term;
+        fcDisplayDef.textContent = currentCard.def;
+        fcCounter.textContent = `Kartu ${fcCurrentIndex + 1} / ${appState.flashcards.length}`;
+
+        fcCardElement.classList.remove('flipped');
+        renderFlashcardDeckList();
+      }
+
+      fcCardElement.addEventListener('click', () => {
+        if (appState.flashcards.length > 0) {
+          fcCardElement.classList.toggle('flipped');
+        }
+      });
+
+      document.getElementById('fc-btn-prev').addEventListener('click', () => {
+        if (appState.flashcards.length === 0) return;
+        fcCurrentIndex = (fcCurrentIndex - 1 + appState.flashcards.length) % appState.flashcards.length;
+        renderFlashcardViewer();
+      });
+
+      document.getElementById('fc-btn-next').addEventListener('click', () => {
+        if (appState.flashcards.length === 0) return;
+        fcCurrentIndex = (fcCurrentIndex + 1) % appState.flashcards.length;
+        renderFlashcardViewer();
+      });
+
+      document.getElementById('btn-shuffle-flashcards').addEventListener('click', () => {
+        if (appState.flashcards.length < 2) return;
+        for (let i = appState.flashcards.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [appState.flashcards[i], appState.flashcards[j]] = [appState.flashcards[j], appState.flashcards[i]];
+        }
+        saveState(appState);
+        fcCurrentIndex = 0;
+        renderFlashcardViewer();
+        showToast("Urutan flashcard berhasil diacak!", "info");
+      });
+
+      function renderFlashcardDeckList() {
+        fcDeckGrid.innerHTML = '';
+        appState.flashcards.forEach((fc, idx) => {
+          const card = document.createElement('div');
+          card.className = "glass-card p-4 rounded-xl border border-slate-800 space-y-2 flex flex-col justify-between";
+          card.innerHTML = `
+            <div>
+              <span class="text-[10px] font-bold uppercase tracking-wider text-indigo-400">#${idx + 1}</span>
+              <h5 class="text-sm font-bold text-white leading-snug">${escapeHTML(fc.term)}</h5>
+              <p class="text-xs text-slate-400 mt-1 line-clamp-2">${escapeHTML(fc.def)}</p>
+            </div>
+            <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+              <button data-id="${fc.id}" class="btn-edit-fc text-slate-400 hover:text-indigo-400 text-xs p-1" title="Edit Kartu"><i class="fa-solid fa-pen-to-square"></i></button>
+              <button data-id="${fc.id}" class="btn-delete-fc text-slate-400 hover:text-rose-400 text-xs p-1" title="Hapus Kartu"><i class="fa-solid fa-trash-can"></i></button>
+            </div>
+          `;
+          fcDeckGrid.appendChild(card);
+        });
+
+        document.querySelectorAll('.btn-delete-fc').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            const id = e.currentTarget.dataset.id;
+            if (confirm("Hapus flashcard ini?")) {
+              appState.flashcards = appState.flashcards.filter(f => f.id !== id);
+              saveState(appState);
+              renderFlashcardViewer();
+              showToast("Flashcard dihapus", "info");
+            }
+          });
+        });
+
+        document.querySelectorAll('.btn-edit-fc').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            const id = e.currentTarget.dataset.id;
+            const fc = appState.flashcards.find(f => f.id === id);
+            if (fc) {
+              document.getElementById('fc-id').value = fc.id;
+              document.getElementById('fc-term').value = fc.term;
+              document.getElementById('fc-def').value = fc.def;
+              document.getElementById('modal-fc-title').textContent = 'Edit Flashcard';
+              openModal('modal-fc');
+            }
+          });
+        });
+      }
+
+      document.getElementById('btn-open-fc-modal').addEventListener('click', () => {
+        document.getElementById('form-fc').reset();
+        document.getElementById('fc-id').value = '';
+        document.getElementById('modal-fc-title').textContent = 'Tambah Flashcard Baru';
+        openModal('modal-fc');
+      });
+
+      document.getElementById('form-fc').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const id = document.getElementById('fc-id').value;
+        const term = document.getElementById('fc-term').value.trim();
+        const def = document.getElementById('fc-def').value.trim();
+
+        if (id) {
+          const idx = appState.flashcards.findIndex(f => f.id === id);
+          if (idx !== -1) {
+            appState.flashcards[idx] = { id, term, def };
+          }
+        } else {
+          const newFc = { id: 'fc-' + Date.now(), term, def };
+          appState.flashcards.push(newFc);
+        }
+
+        saveState(appState);
+        renderFlashcardViewer();
+        closeModal('modal-fc');
+        showToast("Flashcard berhasil disimpan!", "success");
+      });
+
+      // ==========================================
+      // PANEL 4: CLASS TIMER CONTROLLER
+      // ==========================================
+      let timerInterval = null;
+      let timerTotalSeconds = 25 * 60;
+      let timerRemainingSeconds = 25 * 60;
+      let isTimerRunning = false;
+
+      const timerDigits = document.getElementById('timer-display-digits');
+      const timerProgressRing = document.getElementById('timer-progress-ring');
+      const timerBadge = document.getElementById('timer-session-badge');
+      const btnTimerStartPause = document.getElementById('btn-timer-start-pause');
+      const btnTimerReset = document.getElementById('btn-timer-reset');
+
+      const ringRadius = 45;
+      const ringCircumference = 2 * Math.PI * ringRadius;
+
+      function updateTimerDisplay() {
+        const mins = Math.floor(timerRemainingSeconds / 60);
+        const secs = timerRemainingSeconds % 60;
+        const formatted = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+        timerDigits.textContent = formatted;
+
+        const fraction = timerTotalSeconds > 0 ? timerRemainingSeconds / timerTotalSeconds : 0;
+        const offset = ringCircumference * (1 - fraction);
+        timerProgressRing.style.strokeDashoffset = offset;
+      }
+
+      function startTimer() {
+        if (isTimerRunning) return;
+        isTimerRunning = true;
+        btnTimerStartPause.innerHTML = `<i class="fa-solid fa-pause"></i> <span>Jeda</span>`;
+        btnTimerStartPause.className = "w-36 py-3 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-amber-600/30 flex items-center justify-center gap-2 transition transform hover:scale-105 active:scale-95";
+        timerBadge.textContent = "BERJALAN";
+        timerBadge.className = "text-xs font-semibold text-emerald-400 uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-emerald-500/10";
+
+        timerInterval = setInterval(() => {
+          if (timerRemainingSeconds > 0) {
+            timerRemainingSeconds--;
+            updateTimerDisplay();
+          } else {
+            pauseTimer();
+            playAlarmSound();
+            timerBadge.textContent = "SELESAI";
+            timerBadge.className = "text-xs font-semibold text-rose-400 uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-rose-500/10";
+            showToast("Waktu Sesi Pembelajaran Telah Habis! (00:00)", "warning");
+          }
+        }, 1000);
+      }
+
+      function pauseTimer() {
+        isTimerRunning = false;
+        clearInterval(timerInterval);
+        btnTimerStartPause.innerHTML = `<i class="fa-solid fa-play"></i> <span>Mulai</span>`;
+        btnTimerStartPause.className = "w-36 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2 transition transform hover:scale-105 active:scale-95";
+        if (timerRemainingSeconds > 0) {
+          timerBadge.textContent = "DIJEDA";
+          timerBadge.className = "text-xs font-semibold text-amber-400 uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-amber-500/10";
+        }
+      }
+
+      function resetTimer(seconds) {
+        pauseTimer();
+        if (seconds !== undefined) {
+          timerTotalSeconds = seconds;
+        }
+        timerRemainingSeconds = timerTotalSeconds;
+        timerBadge.textContent = "SIAP";
+        timerBadge.className = "text-xs font-semibold text-indigo-400 uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-indigo-500/10";
+        updateTimerDisplay();
+      }
+
+      btnTimerStartPause.addEventListener('click', () => {
+        if (isTimerRunning) {
+          pauseTimer();
+        } else {
+          startTimer();
+        }
+      });
+
+      btnTimerReset.addEventListener('click', () => resetTimer());
+
+      document.querySelectorAll('.btn-timer-preset').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const mins = parseInt(e.currentTarget.dataset.minutes, 10);
+          document.getElementById('timer-manual-min').value = mins;
+          document.getElementById('timer-manual-sec').value = 0;
+          resetTimer(mins * 60);
+          showToast(`Timer diatur ke ${mins} Menit`, "info");
+        });
+      });
+
+      document.getElementById('btn-timer-set-manual').addEventListener('click', () => {
+        const mins = parseInt(document.getElementById('timer-manual-min').value, 10) || 0;
+        const secs = parseInt(document.getElementById('timer-manual-sec').value, 10) || 0;
+        const total = mins * 60 + secs;
+        if (total > 0) {
+          resetTimer(total);
+          showToast("Timer manual berhasil diterapkan", "info");
+        } else {
+          showToast("Masukkan durasi timer yang valid", "warning");
+        }
+      });
+
+      function playAlarmSound() {
+        try {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (!AudioCtx) return;
+          const audioCtx = new AudioCtx();
+
+          const playBeep = (time, freq) => {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+
+            osc.type = 'sine';
+            osc.frequency.value = freq;
+
+            gain.gain.setValueAtTime(0.3, time);
+            gain.gain.exponentialRampToValueAtTime(0.00001, time + 0.25);
+
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            osc.start(time);
+            osc.stop(time + 0.25);
+          };
+
+          const now = audioCtx.currentTime;
+          playBeep(now, 880);
+          playBeep(now + 0.3, 880);
+          playBeep(now + 0.6, 1046.50);
+        } catch (e) {
+          console.log("Audio play error:", e);
+        }
+      }
+
+      // ==========================================
+      // PANEL 5: STUDENT RANDOMIZER CONTROLLER & RESET
+      // ==========================================
+      const randomizerTextarea = document.getElementById('randomizer-names-textarea');
+      const randomizerNamesCount = document.getElementById('randomizer-total-names-count');
+      const rouletteDisplayName = document.getElementById('roulette-display-name');
+      const rouletteBox = document.getElementById('roulette-box');
+
+      function updateRandomizerState() {
+        const text = randomizerTextarea.value;
+        appState.randomizerNames = text;
+        saveState(appState);
+
+        const namesList = getCleanStudentNames();
+        randomizerNamesCount.textContent = `Total Nama: ${namesList.length}`;
+      }
+
+      function getCleanStudentNames() {
+        return randomizerTextarea.value
+          .split('\n')
+          .map(n => n.trim())
+          .filter(n => n.length > 0);
+      }
+
+      randomizerTextarea.value = appState.randomizerNames || '';
+      updateRandomizerState();
+
+      randomizerTextarea.addEventListener('input', updateRandomizerState);
+
+      document.getElementById('btn-clear-randomizer-names').addEventListener('click', () => {
+        if (confirm("Kosongkan daftar nama siswa?")) {
+          randomizerTextarea.value = '';
+          updateRandomizerState();
+          rouletteDisplayName.textContent = '--- Klik Tombol Acak ---';
+        }
+      });
+
+      document.getElementById('btn-load-students-from-attendance').addEventListener('click', () => {
+        const names = [...new Set(appState.attendance.map(a => a.student))];
+        if (names.length === 0) {
+          showToast("Tidak ada data nama siswa dari catatan kehadiran", "warning");
+          return;
+        }
+        randomizerTextarea.value = names.join('\n');
+        updateRandomizerState();
+        showToast(`${names.length} nama siswa dimuat dari catatan kehadiran!`, "success");
+      });
+
+      let isRouletteSpinning = false;
+      document.getElementById('btn-pick-one-student').addEventListener('click', () => {
+        if (isRouletteSpinning) return;
+        const names = getCleanStudentNames();
+        
+        if (names.length === 0) {
+          showToast("Masukkan setidaknya 1 nama siswa pada kotak di sebelah kiri", "warning");
+          return;
+        }
+
+        isRouletteSpinning = true;
+        rouletteBox.classList.add('roulette-animating');
+
+        let counter = 0;
+        const totalTicks = 25;
+        let speed = 50;
+
+        function spinTick() {
+          const randomIndex = Math.floor(Math.random() * names.length);
+          rouletteDisplayName.textContent = names[randomIndex];
+          counter++;
+
+          if (counter < totalTicks) {
+            if (counter > 15) speed += 25;
+            setTimeout(spinTick, speed);
+          } else {
+            const winner = names[Math.floor(Math.random() * names.length)];
+            rouletteDisplayName.textContent = winner;
+            rouletteBox.classList.remove('roulette-animating');
+            isRouletteSpinning = false;
+
+            if (typeof confetti === 'function') {
+              confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+            }
+            showToast(`Siswa Terpilih: ${winner}!`, "success");
+          }
+        }
+
+        spinTick();
+      });
+
+      const groupModeSelect = document.getElementById('group-mode-select');
+      const groupNumberLabel = document.getElementById('group-number-label');
+      const groupNumberInput = document.getElementById('group-number-input');
+      const groupResultsGrid = document.getElementById('group-results-grid');
+      const btnResetGroups = document.getElementById('btn-reset-groups');
+
+      if (btnResetGroups) {
+        btnResetGroups.addEventListener('click', () => {
+          groupResultsGrid.innerHTML = '';
+          showToast("Hasil pembagian kelompok berhasil dihapus", "info");
+        });
+      }
+
+      groupModeSelect.addEventListener('change', (e) => {
+        if (e.target.value === 'num_groups') {
+          groupNumberLabel.textContent = 'Jumlah Kelompok:';
+          groupNumberInput.value = 2;
+        } else {
+          groupNumberLabel.textContent = 'Siswa per Kelompok:';
+          groupNumberInput.value = 2;
+        }
+      });
+
+      document.getElementById('btn-generate-groups').addEventListener('click', () => {
+        const names = getCleanStudentNames();
+        if (names.length === 0) {
+          showToast("Masukkan nama siswa terlebih dahulu", "warning");
+          return;
+        }
+
+        const shuffled = [...names];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+
+        const mode = groupModeSelect.value;
+        const val = parseInt(groupNumberInput.value, 10) || 2;
+        const groups = [];
+
+        if (mode === 'num_groups') {
+          const numGroups = Math.max(1, Math.min(val, shuffled.length));
+          for (let i = 0; i < numGroups; i++) groups.push([]);
+          shuffled.forEach((name, idx) => {
+            groups[idx % numGroups].push(name);
+          });
+        } else {
+          const size = Math.max(1, val);
+          for (let i = 0; i < shuffled.length; i += size) {
+            groups.push(shuffled.slice(i, i + size));
+          }
+        }
+
+        groupResultsGrid.innerHTML = '';
+        let copyTextBuffer = '';
+
+        groups.forEach((grp, idx) => {
+          const card = document.createElement('div');
+          card.className = "bg-slate-900/90 p-4 rounded-xl border border-slate-800 space-y-2";
+          
+          const groupTitle = `Kelompok ${idx + 1}`;
+          copyTextBuffer += `${groupTitle}:\n` + grp.map(n => `- ${n}`).join('\n') + '\n\n';
+
+          card.innerHTML = `
+            <div class="flex items-center justify-between border-b border-slate-800 pb-1.5">
+              <span class="text-xs font-bold text-indigo-400"><i class="fa-solid fa-users text-xs mr-1"></i> ${groupTitle}</span>
+              <span class="text-[10px] text-slate-400 bg-slate-800 px-2 py-0.5 rounded-full">${grp.length} Siswa</span>
+            </div>
+            <ul class="text-xs text-slate-300 space-y-1 pt-1">
+              ${grp.map(n => `<li class="flex items-center gap-1.5"><i class="fa-solid fa-user-tag text-[10px] text-purple-400"></i> ${escapeHTML(n)}</li>`).join('')}
+            </ul>
+          `;
+          groupResultsGrid.appendChild(card);
+        });
+
+        const copyBtn = document.createElement('button');
+        copyBtn.className = "col-span-1 sm:col-span-2 mt-2 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-indigo-300 rounded-xl text-xs font-semibold border border-slate-700 transition flex items-center justify-center gap-2";
+        copyBtn.innerHTML = `<i class="fa-solid fa-copy"></i> Salin Pembagian Kelompok`;
+        copyBtn.addEventListener('click', () => {
+          navigator.clipboard.writeText(copyTextBuffer).then(() => {
+            showToast("Hasil pembagian kelompok disalin ke clipboard!", "success");
+          });
+        });
+        groupResultsGrid.appendChild(copyBtn);
+      });
+
+      // ==========================================
+      // PANEL 6: ATTENDANCE CONTROLLER
+      // ==========================================
+      const attendanceTableBody = document.getElementById('attendance-table-body');
+      const attendanceEmptyState = document.getElementById('attendance-empty-state');
+      const searchAttendanceInput = document.getElementById('search-attendance');
+      const filterAttendanceStatus = document.getElementById('filter-attendance-status');
+
+      function renderAttendanceTable() {
+        const query = searchAttendanceInput.value.toLowerCase().trim();
+        const statusFilter = filterAttendanceStatus.value;
+
+        let list = [...appState.attendance].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+        if (query) {
+          list = list.filter(item => 
+            item.student.toLowerCase().includes(query) || 
+            (item.notes && item.notes.toLowerCase().includes(query))
+          );
+        }
+
+        if (statusFilter !== 'ALL') {
+          list = list.filter(item => item.status === statusFilter);
+        }
+
+        const totalHadir = appState.attendance.filter(a => a.status === 'Hadir').length;
+        const totalIzin = appState.attendance.filter(a => a.status === 'Izin').length;
+        const totalSakit = appState.attendance.filter(a => a.status === 'Sakit').length;
+        const totalAlfa = appState.attendance.filter(a => a.status === 'Alfa').length;
+
+        document.getElementById('stat-count-hadir').textContent = totalHadir;
+        document.getElementById('stat-count-izin').textContent = totalIzin;
+        document.getElementById('stat-count-sakit').textContent = totalSakit;
+        document.getElementById('stat-count-alfa').textContent = totalAlfa;
+
+        attendanceTableBody.innerHTML = '';
+
+        if (list.length === 0) {
+          attendanceEmptyState.classList.remove('hidden');
+          return;
+        } else {
+          attendanceEmptyState.classList.add('hidden');
+        }
+
+        list.forEach(item => {
+          const tr = document.createElement('tr');
+          tr.className = "hover:bg-slate-800/40 transition";
+
+          let statusBadge = '';
+          if (item.status === 'Hadir') {
+            statusBadge = `<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Hadir</span>`;
+          } else if (item.status === 'Izin') {
+            statusBadge = `<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30">Izin</span>`;
+          } else if (item.status === 'Sakit') {
+            statusBadge = `<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">Sakit</span>`;
+          } else {
+            statusBadge = `<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">Alfa</span>`;
+          }
+
+          tr.innerHTML = `
+            <td class="p-3.5 pl-5 font-mono text-slate-400 whitespace-nowrap">${escapeHTML(item.date)}</td>
+            <td class="p-3.5 font-bold text-white whitespace-nowrap">${escapeHTML(item.student)}</td>
+            <td class="p-3.5 whitespace-nowrap">${statusBadge}</td>
+            <td class="p-3.5 text-slate-300 max-w-xs truncate" title="${escapeHTML(item.notes || '-')}">${escapeHTML(item.notes || '-')}</td>
+            <td class="p-3.5 pr-5 text-right whitespace-nowrap">
+              <button data-id="${item.id}" class="btn-edit-att text-slate-400 hover:text-indigo-400 p-1.5 mr-1" title="Edit Data"><i class="fa-solid fa-pen-to-square"></i></button>
+              <button data-id="${item.id}" class="btn-delete-att text-slate-400 hover:text-rose-400 p-1.5" title="Hapus Data"><i class="fa-solid fa-trash-can"></i></button>
+            </td>
+          `;
+          attendanceTableBody.appendChild(tr);
+        });
+
+        document.querySelectorAll('.btn-delete-att').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            const id = e.currentTarget.dataset.id;
+            if (confirm("Hapus catatan kehadiran ini?")) {
+              appState.attendance = appState.attendance.filter(a => a.id !== id);
+              saveState(appState);
+              renderAttendanceTable();
+              showToast("Catatan kehadiran dihapus", "info");
+            }
+          });
+        });
+
+        document.querySelectorAll('.btn-edit-att').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            const id = e.currentTarget.dataset.id;
+            const att = appState.attendance.find(a => a.id === id);
+            if (att) {
+              document.getElementById('att-id').value = att.id;
+              document.getElementById('att-date').value = att.date;
+              document.getElementById('att-student').value = att.student;
+              document.getElementById('att-status').value = att.status;
+              document.getElementById('att-notes').value = att.notes || '';
+              document.getElementById('modal-attendance-title').textContent = 'Edit Catatan Kehadiran';
+              openModal('modal-attendance');
+            }
+          });
+        });
+      }
+
+      searchAttendanceInput.addEventListener('input', renderAttendanceTable);
+      filterAttendanceStatus.addEventListener('change', renderAttendanceTable);
+
+      document.getElementById('btn-open-attendance-modal').addEventListener('click', () => {
+        document.getElementById('form-attendance').reset();
+        document.getElementById('att-id').value = '';
+        document.getElementById('att-date').value = new Date().toISOString().slice(0, 10);
+        document.getElementById('modal-attendance-title').textContent = 'Catat Kehadiran Baru';
+        openModal('modal-attendance');
+      });
+
+      document.getElementById('form-attendance').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const id = document.getElementById('att-id').value;
+        const date = document.getElementById('att-date').value;
+        const student = document.getElementById('att-student').value.trim();
+        const status = document.getElementById('att-status').value;
+        const notes = document.getElementById('att-notes').value.trim();
+
+        if (id) {
+          const idx = appState.attendance.findIndex(a => a.id === id);
+          if (idx !== -1) {
+            appState.attendance[idx] = { id, date, student, status, notes };
+          }
+        } else {
+          const newAtt = { id: 'att-' + Date.now(), date, student, status, notes };
+          appState.attendance.push(newAtt);
+        }
+
+        saveState(appState);
+        renderAttendanceTable();
+        closeModal('modal-attendance');
+        showToast("Catatan kehadiran berhasil disimpan!", "success");
+      });
+
+      // TOAST NOTIFICATIONS SYSTEM
+      function showToast(message, type = 'info') {
+        const container = document.getElementById('toast-container');
+        if (!container) return;
+
+        const toast = document.createElement('div');
+        toast.className = "toast-enter flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl text-xs font-semibold border pointer-events-auto max-w-xs sm:max-w-sm";
+
+        let icon = '<i class="fa-solid fa-circle-info text-indigo-400"></i>';
+        let colors = 'bg-slate-900 border-indigo-500/40 text-slate-100';
+
+        if (type === 'success') {
+          icon = '<i class="fa-solid fa-circle-check text-emerald-400"></i>';
+          colors = 'bg-slate-900 border-emerald-500/40 text-slate-100';
+        } else if (type === 'warning') {
+          icon = '<i class="fa-solid fa-triangle-exclamation text-amber-400"></i>';
+          colors = 'bg-slate-900 border-amber-500/40 text-slate-100';
+        } else if (type === 'error') {
+          icon = '<i class="fa-solid fa-circle-xmark text-rose-400"></i>';
+          colors = 'bg-slate-900 border-rose-500/40 text-slate-100';
+        }
+
+        toast.className += ` ${colors}`;
+        toast.innerHTML = `${icon} <span class="leading-tight">${escapeHTML(message)}</span>`;
+
+        container.appendChild(toast);
+
+        setTimeout(() => {
+          toast.classList.remove('toast-enter');
+          toast.classList.add('toast-exit');
+          setTimeout(() => toast.remove(), 300);
+        }, 3200);
+      }
+
+      function escapeHTML(str) {
+        if (!str) return '';
+        return String(str)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#039;');
+      }
+
+      function renderAllModules() {
+        renderSchedules();
+        renderQuizzes();
+        renderFlashcardViewer();
+        updateTimerDisplay();
+        renderAttendanceTable();
+      }
+
+      renderAllModules();
+
+      // ==========================================
+      // PANEL 7: VIDEO CALL CONTROLLER (PEERJS/WEBRTC)
+      // ==========================================
+      (function initVideoCallModule() {
+        const myIdInput      = document.getElementById('vc-my-id');
+        const copyLinkBtn     = document.getElementById('vc-copy-link');
+        const startMediaBtn   = document.getElementById('vc-start-media');
+        const joinIdInput     = document.getElementById('vc-join-id');
+        const joinBtn         = document.getElementById('vc-join-btn');
+        const statusText      = document.getElementById('vc-status-text');
+        const statusDot       = document.getElementById('videocall-status-dot');
+        const localVideo      = document.getElementById('vc-local-video');
+        const remoteVideo     = document.getElementById('vc-remote-video');
+        const remoteEmptyMsg  = document.getElementById('vc-remote-empty');
+        const micBtn          = document.getElementById('vc-toggle-mic');
+        const camBtn          = document.getElementById('vc-toggle-cam');
+        const screenBtn       = document.getElementById('vc-toggle-screen');
+        const endCallBtn      = document.getElementById('vc-end-call');
+
+        let peer = null;
+        let localStream = null;
+        let currentCall = null;
+        let screenStream = null;
+        let micOn = true;
+        let camOn = true;
+
+        function setStatus(text, colorClass) {
+          statusText.innerHTML = `<i class="fa-solid fa-circle text-[8px] mr-1.5 ${colorClass}"></i>${escapeHTML(text)}`;
+          statusDot.className = `ml-auto w-2 h-2 rounded-full ${colorClass.replace('text-', 'bg-')}`;
+        }
+
+        // Inisialisasi koneksi ke signaling server PeerJS publik (gratis)
+        function initPeer() {
+          if (peer) return;
+          setStatus('Menghubungkan ke server...', 'text-amber-400');
+          peer = new Peer(); // pakai broker cloud gratis bawaan PeerJS
+
+          peer.on('open', (id) => {
+            myIdInput.value = id;
+            setStatus('Siap. Bagikan link/ID ke siswa.', 'text-indigo-400');
+          });
+
+          // Menerima panggilan masuk (peran: guru menunggu siswa connect)
+          peer.on('call', (call) => {
+            if (!localStream) {
+              showToast('Aktifkan kamera & mic dulu sebelum menerima panggilan.', 'warning');
+              return;
+            }
+            call.answer(localStream);
+            bindCallEvents(call);
+          });
+
+          peer.on('error', (err) => {
+            console.error('Peer error:', err);
+            setStatus('Terjadi kesalahan koneksi', 'text-rose-400');
+            showToast('Koneksi signaling bermasalah: ' + err.type, 'error');
+          });
+
+          peer.on('disconnected', () => {
+            setStatus('Terputus dari server', 'text-rose-400');
+          });
+        }
+
+        function bindCallEvents(call) {
+          currentCall = call;
+          call.on('stream', (remoteStream) => {
+            remoteVideo.srcObject = remoteStream;
+            remoteEmptyMsg.classList.add('hidden');
+            setStatus('Terhubung', 'text-emerald-400');
+            endCallBtn.disabled = false;
+          });
+          call.on('close', () => {
+            endVideoCall(false);
+          });
+          call.on('error', (err) => {
+            console.error('Call error:', err);
+            showToast('Panggilan terputus karena error.', 'error');
+            endVideoCall(false);
+          });
+        }
+
+        // Minta izin kamera & mikrofon
+        startMediaBtn.addEventListener('click', async () => {
+          try {
+            localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            localVideo.srcObject = localStream;
+            micBtn.disabled = false;
+            camBtn.disabled = false;
+            screenBtn.disabled = false;
+            startMediaBtn.innerHTML = '<i class="fa-solid fa-circle-check"></i> Kamera & Mic Aktif';
+            startMediaBtn.disabled = true;
+            startMediaBtn.classList.add('opacity-60', 'cursor-not-allowed');
+            initPeer();
+            showToast('Kamera & mikrofon aktif. Room siap dibagikan.', 'success');
+          } catch (err) {
+            console.error(err);
+            showToast('Gagal mengakses kamera/mic. Cek izin browser Anda.', 'error');
+          }
+        });
+
+        // Salin link undangan untuk dikirim ke siswa
+        copyLinkBtn.addEventListener('click', () => {
+          if (!myIdInput.value) {
+            showToast('Tunggu Room ID siap terlebih dahulu.', 'warning');
+            return;
+          }
+          const url = `${window.location.origin}${window.location.pathname}?room=${myIdInput.value}`;
+          navigator.clipboard.writeText(url).then(() => {
+            showToast('Link undangan disalin! Kirim ke siswa via WhatsApp/dll.', 'success');
+          }).catch(() => {
+            showToast('Gagal menyalin. Salin manual: ' + url, 'warning');
+          });
+        });
+
+        // Siswa bergabung ke room guru
+        joinBtn.addEventListener('click', async () => {
+          const targetId = joinIdInput.value.trim();
+          if (!targetId) {
+            showToast('Masukkan Room ID guru terlebih dahulu.', 'warning');
+            return;
+          }
+          if (!localStream) {
+            showToast('Aktifkan kamera & mic dulu sebelum bergabung.', 'warning');
+            return;
+          }
+          initPeer();
+          setStatus('Menghubungi guru...', 'text-amber-400');
+
+          const doCall = () => {
+            const call = peer.call(targetId, localStream);
+            if (!call) {
+              showToast('Gagal memulai panggilan. Cek Room ID.', 'error');
+              return;
+            }
+            bindCallEvents(call);
+          };
+
+          if (peer.open) {
+            doCall();
+          } else {
+            peer.on('open', doCall);
+          }
+        });
+
+        // Mute / unmute mic
+        micBtn.addEventListener('click', () => {
+          if (!localStream) return;
+          micOn = !micOn;
+          localStream.getAudioTracks().forEach(t => t.enabled = micOn);
+          micBtn.innerHTML = micOn ? '<i class="fa-solid fa-microphone"></i>' : '<i class="fa-solid fa-microphone-slash"></i>';
+          micBtn.classList.toggle('bg-rose-600', !micOn);
+        });
+
+        // Nyalakan / matikan kamera
+        camBtn.addEventListener('click', () => {
+          if (!localStream) return;
+          camOn = !camOn;
+          localStream.getVideoTracks().forEach(t => t.enabled = camOn);
+          camBtn.innerHTML = camOn ? '<i class="fa-solid fa-video"></i>' : '<i class="fa-solid fa-video-slash"></i>';
+          camBtn.classList.toggle('bg-rose-600', !camOn);
+        });
+
+        // Bagikan layar (screen share) — mengganti track video yang dikirim ke lawan bicara
+        screenBtn.addEventListener('click', async () => {
+          if (!currentCall || !currentCall.peerConnection) {
+            showToast('Belum ada panggilan aktif untuk berbagi layar.', 'warning');
+            return;
+          }
+          const sender = currentCall.peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
+
+          if (!screenStream) {
+            try {
+              screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+              const screenTrack = screenStream.getVideoTracks()[0];
+              if (sender) await sender.replaceTrack(screenTrack);
+              localVideo.srcObject = screenStream;
+              screenBtn.classList.add('bg-indigo-600');
+              showToast('Berbagi layar dimulai.', 'success');
+
+              // Jika user stop share lewat tombol bawaan browser
+              screenTrack.onended = () => stopScreenShare(sender);
+            } catch (err) {
+              console.error(err);
+              showToast('Gagal memulai berbagi layar (dibatalkan/ditolak).', 'error');
+            }
+          } else {
+            stopScreenShare(sender);
+          }
+        });
+
+        async function stopScreenShare(sender) {
+          if (screenStream) {
+            screenStream.getTracks().forEach(t => t.stop());
+            screenStream = null;
+          }
+          if (sender && localStream) {
+            const camTrack = localStream.getVideoTracks()[0];
+            if (camTrack) await sender.replaceTrack(camTrack);
+          }
+          localVideo.srcObject = localStream;
+          screenBtn.classList.remove('bg-indigo-600');
+          showToast('Berbagi layar dihentikan.', 'info');
+        }
+
+        // Akhiri panggilan
+        endCallBtn.addEventListener('click', () => endVideoCall(true));
+
+        function endVideoCall(showMsg) {
+          if (currentCall) {
+            currentCall.close();
+            currentCall = null;
+          }
+          if (screenStream) {
+            screenStream.getTracks().forEach(t => t.stop());
+            screenStream = null;
+          }
+          remoteVideo.srcObject = null;
+          remoteEmptyMsg.classList.remove('hidden');
+          endCallBtn.disabled = true;
+          setStatus('Panggilan diakhiri', 'text-slate-400');
+          if (showMsg) showToast('Panggilan diakhiri.', 'info');
+        }
+      })();
+
+    });
+  </script>
+</body>
+</html>
